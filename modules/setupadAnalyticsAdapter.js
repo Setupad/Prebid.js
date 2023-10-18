@@ -5,6 +5,7 @@ import adapterManager from '../src/adapterManager.js';
 import { getGptSlotInfoForAdUnitCode, logError, logInfo } from '../src/utils.js';
 
 const analyticsType = 'endpoint';
+const GVLID = 1241;
 const setupadAnalyticsEndpoint =
   'https://function-analytics-setupad-adapter.azurewebsites.net/api/function-analytics-setupad-adapter';
 
@@ -165,6 +166,7 @@ setupadAnalyticsAdapter.enableAnalytics = function (config) {
 adapterManager.registerAnalyticsAdapter({
   adapter: setupadAnalyticsAdapter,
   code: 'setupadAnalyticsAdapter',
+  gvlid: GVLID,
 });
 
 // export for testing

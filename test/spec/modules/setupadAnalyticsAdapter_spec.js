@@ -33,7 +33,7 @@ describe('setupadAnalyticsAdapter', () => {
     it('registers itself with the adapter manager', () => {
       const adapter = adapterManager.getAnalyticsAdapter('setupadAnalyticsAdapter');
       expect(adapter).to.exist;
-      // expect(adapter.gvlid).to.be.a('number');
+      expect(adapter.gvlid).to.be.a('number');
       expect(adapter.adapter).to.equal(setupadAnalyticsAdapter);
     });
 
