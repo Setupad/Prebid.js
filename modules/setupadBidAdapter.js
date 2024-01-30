@@ -400,9 +400,9 @@ function initSendingDataStatistic() {
         if (
           this.auctionIds[bid.auctionId] === bid.bidder &&
           eventName === CONSTANTS.EVENTS.BID_RESPONSE
-        )
+        ) {
           return;
-
+        }
         if (eventName === CONSTANTS.EVENTS.BID_RESPONSE) {
           this.auctionIds[bid.auctionId] = bid.bidder;
         }
