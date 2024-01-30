@@ -10,6 +10,9 @@ const BIDDER_CODE = 'rtbhouse';
 const REGIONS = ['prebid-eu', 'prebid-us', 'prebid-asia'];
 const ENDPOINT_URL = 'creativecdn.com/bidder/prebid/bids';
 const FLEDGE_ENDPOINT_URL = 'creativecdn.com/bidder/prebidfledge/bids';
+const FLEDGE_SELLER_URL = 'https://fledge-ssp.creativecdn.com';
+const FLEDGE_DECISION_LOGIC_URL = 'https://fledge-ssp.creativecdn.com/component-seller-prebid.js';
+
 const DEFAULT_CURRENCY_ARR = ['USD']; // NOTE - USD is the only supported currency right now; Hardcoded for bids
 const SUPPORTED_MEDIA_TYPES = [BANNER, NATIVE];
 const TTL = 55;
@@ -94,8 +97,12 @@ export const spec = {
 
     let computedEndpointUrl = ENDPOINT_URL;
 
-    const fledgeConfig = config.getConfig('fledgeConfig');
-    if (bidderRequest.fledgeEnabled && fledgeConfig) {
+    if (bidderRequest.fledgeEnabled) {
+      const fledgeConfig = config.getConfig('fledgeConfig') || {
+        seller: FLEDGE_SELLER_URL,
+        decisionLogicUrl: FLEDGE_DECISION_LOGIC_URL,
+        sellerTimeout: 500
+      };
       mergeDeep(request, { ext: { fledge_config: fledgeConfig } });
       computedEndpointUrl = FLEDGE_ENDPOINT_URL;
     }
@@ -188,7 +195,7 @@ registerBidder(spec);
 
 /**
  * @param {object} slot Ad Unit Params by Prebid
- * @returns {int} floor by imp type
+ * @returns {number} floor by imp type
  */
 function applyFloor(slot) {
   const floors = [];
@@ -343,7 +350,7 @@ function mapNative(slot) {
 
 /**
  * @param {object} slot Slot config by Prebid
- * @returns {array} Request Assets by OpenRTB Native Ads 1.1 §4.2
+ * @returns {Array} Request Assets by OpenRTB Native Ads 1.1 §4.2
  */
 function mapNativeAssets(slot) {
   const params = slot.nativeParams || deepAccess(slot, 'mediaTypes.native');
@@ -406,7 +413,7 @@ function mapNativeAssets(slot) {
 
 /**
  * @param {object} image Prebid native.image/icon
- * @param {int} type Image or icon code
+ * @param {number} type Image or icon code
  * @returns {object} Request Image by OpenRTB Native Ads 1.1 §4.4
  */
 function mapNativeImage(image, type) {
