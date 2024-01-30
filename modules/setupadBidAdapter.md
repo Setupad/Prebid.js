@@ -1,6 +1,6 @@
 # Overview
 
-```
+```text
 Module Name: Setupad Bid Adapter
 Module Type: Bidder Adapter
 Maintainer: it@setupad.com
