@@ -17,10 +17,11 @@ import CONSTANTS from '../src/constants.json';
 const BIDDER_CODE = 'setupad';
 const ENDPOINT = 'https://prebid.setupad.io/openrtb2/auction';
 const SYNC_ENDPOINT = 'https://cookie.stpd.cloud/sync?';
-const REPORT_ENDPOINT = 'https://adapter-analytics.azurewebsites.net/api/adapter-analytics';
+const REPORT_ENDPOINT = 'https://adapter-analytics.setupad.io';
 const GVLID = 1241;
 const TIME_TO_LIVE = 360;
-const allBidders = {};
+const biddersCpms = {};
+const biddersCreativeIds = {};
 
 const sendingDataStatistic = initSendingDataStatistic();
 events.on(CONSTANTS.EVENTS.AUCTION_INIT, () => {
@@ -75,7 +76,6 @@ export const spec = {
         device,
         site,
         imp: [],
-        test: 1,
       };
 
       const imp = {
@@ -171,10 +171,8 @@ export const spec = {
         };
 
         // Set all bidders obj for later use in getPixelUrl()
-        allBidders[res.seat] = {};
-        allBidders[res.seat].cpm = bidResponse.cpm;
-        allBidders[res.seat].currency = bidResponse.currency;
-        allBidders[res.seat].creativeId = bidResponse.creativeId;
+        biddersCpms[res.seat] = bidResponse.cpm;
+        biddersCreativeIds[res.seat] = bidResponse.creativeId;
 
         bidResponse.ad = ad;
         bidResponse.adUrl = adUrl;
@@ -215,7 +213,7 @@ export const spec = {
   getPixelUrl: function (eventName, bid, timestamp) {
     let bidder = bid.bidder || bid.bidderCode;
     const auctionId = bid.auctionId;
-    if (bidder != BIDDER_CODE) return;
+    if (bidder !== BIDDER_CODE) return;
 
     let params;
     if (bid.params) {
@@ -239,31 +237,28 @@ export const spec = {
     if (!placementIds) return;
 
     let extraBidParams = '';
-    // additional params on bidWon
-    if (eventName === 'bidWon') {
-      extraBidParams = `&cpm=${bid.originalCpm}&currency=${bid.originalCurrency}`;
+
+    if (eventName === CONSTANTS.EVENTS.BID_RESPONSE) {
+      bidder = JSON.stringify(biddersCpms);
+
+      // Add extra parameters
+      extraBidParams = `&currency=${bid.originalCurrency}`;
     }
 
-    if (eventName === 'bidResponse') {
-      // Exclude not needed creativeId key for bidResponse bidders
-      const filteredBidders = Object.fromEntries(
-        Object.entries(allBidders).map(([bidderKey, bidderObj]) => [
-          bidderKey,
-          Object.fromEntries(Object.entries(bidderObj).filter(([key]) => key !== 'creativeId')),
-        ])
-      );
-      bidder = JSON.stringify(filteredBidders);
-    } else if (eventName === 'bidWon') {
+    if (eventName === CONSTANTS.EVENTS.BID_WON) {
       // Iterate through all bidders to find the winning bidder by using creativeId as identification
-      for (const bidderName in allBidders) {
+      for (const bidderName in biddersCreativeIds) {
         if (
-          allBidders.hasOwnProperty(bidderName) &&
-          allBidders[bidderName].creativeId === bid.creativeId
+          biddersCreativeIds.hasOwnProperty(bidderName) &&
+          biddersCreativeIds[bidderName] === bid.creativeId
         ) {
           bidder = bidderName;
-          break; // Exit the loop once a match is found
+          break; // Exit the loop if a match is found
         }
       }
+
+      // Add extra parameters
+      extraBidParams = `&cpm=${bid.originalCpm}&currency=${bid.originalCurrency}`;
     }
 
     const url = `${REPORT_ENDPOINT}?event=${eventName}&bidder=${bidder}&placementIds=${placementIds}&auctionId=${auctionId}${extraBidParams}&timestamp=${timestamp}`;
@@ -357,6 +352,7 @@ function initSendingDataStatistic() {
 
     disabledSending = false;
     enabledSending = false;
+    auctionIds = {};
     eventHendlers = {};
 
     initEvents() {
@@ -393,24 +389,21 @@ function initSendingDataStatistic() {
     }
 
     eventHandler(eventName) {
-      const eventHandlerFunc = this.getEventHandler(eventName);
-      if (eventName == CONSTANTS.EVENTS.BID_TIMEOUT) {
-        return (bids) => {
-          if (this.disabledSending || !Array.isArray(bids)) return;
-
-          for (let bid of bids) {
-            eventHandlerFunc(bid);
-          }
-        };
-      }
-
-      return eventHandlerFunc;
+      return this.getEventHandler(eventName);
     }
 
     getEventHandler(eventName) {
       return (bid) => {
         if (this.disabledSending) return;
-
+        if (
+          this.auctionIds[bid.auctionId] === bid.bidder &&
+          eventName === CONSTANTS.EVENTS.BID_RESPONSE
+        ) {
+          return;
+        }
+        if (eventName === CONSTANTS.EVENTS.BID_RESPONSE) {
+          this.auctionIds[bid.auctionId] = bid.bidder;
+        }
         const url = spec.getPixelUrl(eventName, bid, Date.now());
         if (!url) return;
         triggerPixel(url);
