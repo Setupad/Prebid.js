@@ -215,8 +215,7 @@ const setEventsListeners = (function () {
         [CONSTANTS.EVENTS.AUCTION_INIT]: ['onAuctionInitEvent'],
         [CONSTANTS.EVENTS.AUCTION_END]: ['onAuctionEndEvent', getAdUnitTargeting],
         [CONSTANTS.EVENTS.BID_RESPONSE]: ['onBidResponseEvent'],
-        [CONSTANTS.EVENTS.BID_REQUESTED]: ['onBidRequestEvent'],
-        [CONSTANTS.EVENTS.BID_ACCEPTED]: ['onBidAcceptedEvent']
+        [CONSTANTS.EVENTS.BID_REQUESTED]: ['onBidRequestEvent']
       }).forEach(([ev, [handler, preprocess]]) => {
         events.on(ev, (args) => {
           preprocess && preprocess(args);
@@ -386,7 +385,7 @@ export function getAdUnitTargeting(auction) {
 
 /**
  * deep merge array of objects
- * @param {Array} arr - objects array
+ * @param {array} arr - objects array
  * @return {Object} merged object
  */
 export function deepMerge(arr) {

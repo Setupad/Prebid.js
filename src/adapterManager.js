@@ -1,6 +1,8 @@
 /** @module adaptermanger */
 
 import {
+  _each,
+  bind,
   deepAccess,
   deepClone,
   flatten,
@@ -10,8 +12,7 @@ import {
   getUniqueIdentifierStr,
   getUserConfiguredParams,
   groupBy,
-  isArray,
-  isPlainObject,
+  isArray, isPlainObject,
   isValidMediaTypes,
   logError,
   logInfo,
@@ -29,7 +30,7 @@ import {hook} from './hook.js';
 import {find, includes} from './polyfill.js';
 import {adunitCounter} from './adUnits.js';
 import {getRefererInfo} from './refererDetection.js';
-import {GDPR_GVLIDS, gdprDataHandler, gppDataHandler, uspDataHandler, } from './consentHandler.js';
+import {GDPR_GVLIDS, GdprConsentHandler, GppConsentHandler, UspConsentHandler} from './consentHandler.js';
 import * as events from './events.js';
 import CONSTANTS from './constants.json';
 import {useMetrics} from './utils/perfMetrics.js';
@@ -39,8 +40,6 @@ import {isActivityAllowed} from './activities/rules.js';
 import {ACTIVITY_FETCH_BIDS, ACTIVITY_REPORT_ANALYTICS} from './activities/activities.js';
 import {ACTIVITY_PARAM_ANL_CONFIG, ACTIVITY_PARAM_S2S_NAME, activityParamsBuilder} from './activities/params.js';
 import {redactor} from './activities/redactor.js';
-
-export {gdprDataHandler, gppDataHandler, uspDataHandler, coppaDataHandler} from './consentHandler.js';
 
 export const PBS_ADAPTER_NAME = 'pbsBidAdapter';
 export const PARTITIONS = {
@@ -192,6 +191,16 @@ function getAdUnitCopyForClientAdapters(adUnits) {
 
   return adUnitsClientCopy;
 }
+
+export let gdprDataHandler = new GdprConsentHandler();
+export let uspDataHandler = new UspConsentHandler();
+export let gppDataHandler = new GppConsentHandler();
+
+export let coppaDataHandler = {
+  getCoppa: function() {
+    return !!(config.getConfig('coppa'))
+  }
+};
 
 /**
  * Filter and/or modify media types for ad units based on the given labels.
@@ -373,13 +382,13 @@ adapterManager.callBids = (adUnits, bidRequests, addBidResponse, doneCb, request
     return;
   }
 
-  let [clientBidderRequests, serverBidderRequests] = bidRequests.reduce((partitions, bidRequest) => {
+  let [clientBidRequests, serverBidRequests] = bidRequests.reduce((partitions, bidRequest) => {
     partitions[Number(typeof bidRequest.src !== 'undefined' && bidRequest.src === CONSTANTS.S2S.SRC)].push(bidRequest);
     return partitions;
   }, [[], []]);
 
   var uniqueServerBidRequests = [];
-  serverBidderRequests.forEach(serverBidRequest => {
+  serverBidRequests.forEach(serverBidRequest => {
     var index = -1;
     for (var i = 0; i < uniqueServerBidRequests.length; ++i) {
       if (serverBidRequest.uniquePbsTid === uniqueServerBidRequests[i].uniquePbsTid) {
@@ -406,19 +415,14 @@ adapterManager.callBids = (adUnits, bidRequests, addBidResponse, doneCb, request
       let uniquePbsTid = uniqueServerBidRequests[counter].uniquePbsTid;
       let adUnitsS2SCopy = uniqueServerBidRequests[counter].adUnitsS2SCopy;
 
-      let uniqueServerRequests = serverBidderRequests.filter(serverBidRequest => serverBidRequest.uniquePbsTid === uniquePbsTid);
+      let uniqueServerRequests = serverBidRequests.filter(serverBidRequest => serverBidRequest.uniquePbsTid === uniquePbsTid);
 
       if (s2sAdapter) {
         let s2sBidRequest = {'ad_units': adUnitsS2SCopy, s2sConfig, ortb2Fragments};
         if (s2sBidRequest.ad_units.length) {
           let doneCbs = uniqueServerRequests.map(bidRequest => {
             bidRequest.start = timestamp();
-            return function (timedOut) {
-              if (!timedOut) {
-                onTimelyResponse(bidRequest.bidderRequestId);
-              }
-              doneCb.apply(bidRequest, arguments);
-            }
+            return doneCb.bind(bidRequest);
           });
 
           const bidders = getBidderCodes(s2sBidRequest.ad_units).filter((bidder) => adaptersServerSide.includes(bidder));
@@ -433,9 +437,9 @@ adapterManager.callBids = (adUnits, bidRequests, addBidResponse, doneCb, request
           // make bid requests
           s2sAdapter.callBids(
             s2sBidRequest,
-            serverBidderRequests,
+            serverBidRequests,
             addBidResponse,
-            (timedOut) => doneCbs.forEach(done => done(timedOut)),
+            () => doneCbs.forEach(done => done()),
             s2sAjax
           );
         }
@@ -447,34 +451,35 @@ adapterManager.callBids = (adUnits, bidRequests, addBidResponse, doneCb, request
   });
 
   // handle client adapter requests
-  clientBidderRequests.forEach(bidderRequest => {
-    bidderRequest.start = timestamp();
+  clientBidRequests.forEach(bidRequest => {
+    bidRequest.start = timestamp();
     // TODO : Do we check for bid in pool from here and skip calling adapter again ?
-    const adapter = _bidderRegistry[bidderRequest.bidderCode];
-    config.runWithBidder(bidderRequest.bidderCode, () => {
+    const adapter = _bidderRegistry[bidRequest.bidderCode];
+    config.runWithBidder(bidRequest.bidderCode, () => {
       logMessage(`CALLING BIDDER`);
-      events.emit(CONSTANTS.EVENTS.BID_REQUESTED, bidderRequest);
+      events.emit(CONSTANTS.EVENTS.BID_REQUESTED, bidRequest);
     });
     let ajax = ajaxBuilder(requestBidsTimeout, requestCallbacks ? {
-      request: requestCallbacks.request.bind(null, bidderRequest.bidderCode),
+      request: requestCallbacks.request.bind(null, bidRequest.bidderCode),
       done: requestCallbacks.done
     } : undefined);
-    const adapterDone = doneCb.bind(bidderRequest);
+    const adapterDone = doneCb.bind(bidRequest);
     try {
       config.runWithBidder(
-        bidderRequest.bidderCode,
-        adapter.callBids.bind(
+        bidRequest.bidderCode,
+        bind.call(
+          adapter.callBids,
           adapter,
-          bidderRequest,
+          bidRequest,
           addBidResponse,
           adapterDone,
           ajax,
-          () => onTimelyResponse(bidderRequest.bidderRequestId),
-          config.callbackWithBidder(bidderRequest.bidderCode)
+          onTimelyResponse,
+          config.callbackWithBidder(bidRequest.bidderCode)
         )
       );
     } catch (e) {
-      logError(`${bidderRequest.bidderCode} Bid Adapter emitted an uncaught error when parsing their bidRequest`, {e, bidRequest: bidderRequest});
+      logError(`${bidRequest.bidderCode} Bid Adapter emitted an uncaught error when parsing their bidRequest`, {e, bidRequest});
       adapterDone();
     }
   });
@@ -542,9 +547,6 @@ adapterManager.aliasBidAdapter = function (bidderCode, alias, options) {
         } else {
           let spec = bidAdapter.getSpec();
           let gvlid = options && options.gvlid;
-          if (spec.gvlid != null && gvlid == null) {
-            logWarn(`Alias '${alias}' will NOT re-use the GVL ID of the original adapter ('${spec.code}', gvlid: ${spec.gvlid}). Functionality that requires TCF consent may not work as expected.`)
-          }
           let skipPbsAliasing = options && options.skipPbsAliasing;
           newAdapter = newBidder(Object.assign({}, spec, { code: alias, gvlid, skipPbsAliasing }));
           _aliasRegistry[alias] = bidderCode;
@@ -591,7 +593,7 @@ adapterManager.enableAnalytics = function (config) {
     config = [config];
   }
 
-  config.forEach(adapterConfig => {
+  _each(config, adapterConfig => {
     const entry = _analyticsRegistry[adapterConfig.provider];
     if (entry && entry.adapter) {
       if (dep.isAllowed(ACTIVITY_REPORT_ANALYTICS, activityParams(MODULE_TYPE_ANALYTICS, adapterConfig.provider, {[ACTIVITY_PARAM_ANL_CONFIG]: adapterConfig}))) {

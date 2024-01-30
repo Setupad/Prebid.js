@@ -1,17 +1,16 @@
-import {config} from '../src/config.js';
+import { config } from '../src/config.js';
 import adapterManager from '../src/adapterManager.js';
 import {
-  _each,
-  deepAccess,
-  deepClone,
-  deepSetValue,
-  isArray,
-  isInteger,
   isNumber,
-  isPlainObject,
   isStr,
+  isArray,
+  isPlainObject,
+  hasOwn,
   logError,
-  logWarn
+  isInteger,
+  _each,
+  logWarn,
+  deepAccess, deepSetValue, deepClone
 } from '../src/utils.js';
 import {registerOrtbProcessor, REQUEST} from '../src/pbjsORTB.js';
 
@@ -64,7 +63,7 @@ export function isSchainObjectValid(schainObject, returnOnError) {
   }
 
   // ext: Object [optional]
-  if (schainObject.hasOwnProperty('ext')) {
+  if (hasOwn(schainObject, 'ext')) {
     if (!isPlainObject(schainObject.ext)) {
       appendFailMsg(`schain.config.ext` + shouldBeAnObject);
     }
@@ -93,28 +92,28 @@ export function isSchainObjectValid(schainObject, returnOnError) {
       }
 
       // rid: String [Optional]
-      if (node.hasOwnProperty('rid')) {
+      if (hasOwn(node, 'rid')) {
         if (!isStr(node.rid)) {
           appendFailMsg(`schain.config.nodes[${index}].rid` + shouldBeAString);
         }
       }
 
       // name: String [Optional]
-      if (node.hasOwnProperty('name')) {
+      if (hasOwn(node, 'name')) {
         if (!isStr(node.name)) {
           appendFailMsg(`schain.config.nodes[${index}].name` + shouldBeAString);
         }
       }
 
       // domain: String [Optional]
-      if (node.hasOwnProperty('domain')) {
+      if (hasOwn(node, 'domain')) {
         if (!isStr(node.domain)) {
           appendFailMsg(`schain.config.nodes[${index}].domain` + shouldBeAString);
         }
       }
 
       // ext: Object [Optional]
-      if (node.hasOwnProperty('ext')) {
+      if (hasOwn(node, 'ext')) {
         if (!isPlainObject(node.ext)) {
           appendFailMsg(`schain.config.nodes[${index}].ext` + shouldBeAnObject);
         }

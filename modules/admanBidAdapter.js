@@ -4,7 +4,6 @@ import { isFn, deepAccess, logMessage } from '../src/utils.js';
 import {config} from '../src/config.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
 
-const GVLID = 149;
 const BIDDER_CODE = 'adman';
 const AD_URL = 'https://pub.admanmedia.com/?c=o&m=multi';
 const URL_SYNC = 'https://sync.admanmedia.com';
@@ -58,7 +57,6 @@ function getUserId(eids, id, source, uidExt) {
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
 
   isBidRequestValid: (bid) => {
@@ -68,7 +66,6 @@ export const spec = {
   buildRequests: (validBidRequests = [], bidderRequest) => {
     // convert Native ORTB definition to old-style prebid native definition
     validBidRequests = convertOrtbRequestToProprietaryNative(validBidRequests);
-    const content = deepAccess(bidderRequest, 'ortb2.site.content', config.getAnyConfig('ortb2.site.content'));
 
     let winTop = window;
     let location;
@@ -96,12 +93,7 @@ export const spec = {
         request.ccpa = bidderRequest.uspConsent;
       }
       if (bidderRequest.gdprConsent) {
-        request.gdpr = {
-          consentString: bidderRequest.gdprConsent.consentString
-        };
-      }
-      if (content) {
-        request.content = content;
+        request.gdpr = bidderRequest.gdprConsent
       }
     }
     const len = validBidRequests.length;
@@ -115,11 +107,6 @@ export const spec = {
         bidId,
         eids: [],
         bidFloor: getBidFloor(bid)
-      }
-
-      if (bid.transactionId) {
-        placement.ext = placement.ext || {};
-        placement.ext.tid = bid.transactionId;
       }
 
       if (bid.schain) {

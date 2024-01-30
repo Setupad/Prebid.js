@@ -55,8 +55,8 @@ export const spec = {
   /**
    * Determine which user syncs should occur
    * @param {object} syncOptions
-   * @param {Array} serverResponses
-   * @returns {Array} User sync pixels
+   * @param {array} serverResponses
+   * @returns {array} User sync pixels
    */
   getUserSyncs: function (syncOptions, serverResponses) {
     const kwTag = document.getElementsByName('keywords');

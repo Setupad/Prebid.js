@@ -3,38 +3,23 @@
  */
 import * as utils from './utils.js'
 import CONSTANTS from './constants.json';
-import {ttlCollection} from './utils/ttlCollection.js';
-import {config} from './config.js';
-const TTL_CONFIG = 'eventHistoryTTL';
 
-let eventTTL = null;
-
-// keep a record of all events fired
-const eventsFired = ttlCollection({
-  monotonic: true,
-  ttl: () => eventTTL,
-})
-
-config.getConfig(TTL_CONFIG, (val) => {
-  const previous = eventTTL;
-  val = val?.[TTL_CONFIG];
-  eventTTL = typeof val === 'number' ? val * 1000 : null;
-  if (previous !== eventTTL) {
-    eventsFired.refresh();
-  }
-});
-
-let slice = Array.prototype.slice;
-let push = Array.prototype.push;
+var slice = Array.prototype.slice;
+var push = Array.prototype.push;
 
 // define entire events
-let allEvents = Object.values(CONSTANTS.EVENTS);
+// var allEvents = ['bidRequested','bidResponse','bidWon','bidTimeout'];
+var allEvents = utils._map(CONSTANTS.EVENTS, function (v) {
+  return v;
+});
 
-const idPaths = CONSTANTS.EVENT_ID_PATHS;
+var idPaths = CONSTANTS.EVENT_ID_PATHS;
 
+// keep a record of all events fired
+var eventsFired = [];
 const _public = (function () {
-  let _handlers = {};
-  let _public = {};
+  var _handlers = {};
+  var _public = {};
 
   /**
    *
@@ -45,30 +30,31 @@ const _public = (function () {
   function _dispatch(eventString, args) {
     utils.logMessage('Emitting event for: ' + eventString);
 
-    let eventPayload = args[0] || {};
-    let idPath = idPaths[eventString];
-    let key = eventPayload[idPath];
-    let event = _handlers[eventString] || { que: [] };
-    var eventKeys = Object.keys(event);
+    var eventPayload = args[0] || {};
+    var idPath = idPaths[eventString];
+    var key = eventPayload[idPath];
+    var event = _handlers[eventString] || { que: [] };
+    var eventKeys = utils._map(event, function (v, k) {
+      return k;
+    });
 
-    let callbacks = [];
+    var callbacks = [];
 
     // record the event:
-    eventsFired.add({
+    eventsFired.push({
       eventType: eventString,
       args: eventPayload,
       id: key,
       elapsedTime: utils.getPerformanceNow(),
     });
 
-    /**
-     * Push each specific callback to the `callbacks` array.
+    /** Push each specific callback to the `callbacks` array.
      * If the `event` map has a key that matches the value of the
      * event payload id path, e.g. `eventPayload[idPath]`, then apply
      * each function in the `que` array as an argument to push to the
      * `callbacks` array
-     */
-    if (key && eventKeys.includes(key)) {
+     * */
+    if (key && utils.contains(eventKeys, key)) {
       push.apply(callbacks, event[key].que);
     }
 
@@ -76,26 +62,24 @@ const _public = (function () {
     push.apply(callbacks, event.que);
 
     /** call each of the callbacks */
-    (callbacks || []).forEach(function (fn) {
+    utils._each(callbacks, function (fn) {
       if (!fn) return;
       try {
         fn.apply(null, args);
       } catch (e) {
-        utils.logError('Error executing handler:', 'events.js', e, eventString);
+        utils.logError('Error executing handler:', 'events.js', e);
       }
     });
   }
 
   function _checkAvailableEvent(event) {
-    return allEvents.includes(event)
+    return utils.contains(allEvents, event);
   }
-
-  _public.has = _checkAvailableEvent;
 
   _public.on = function (eventString, handler, id) {
     // check whether available event or not
     if (_checkAvailableEvent(eventString)) {
-      let event = _handlers[eventString] || { que: [] };
+      var event = _handlers[eventString] || { que: [] };
 
       if (id) {
         event[id] = event[id] || { que: [] };
@@ -111,12 +95,12 @@ const _public = (function () {
   };
 
   _public.emit = function (event) {
-    let args = slice.call(arguments, 1);
+    var args = slice.call(arguments, 1);
     _dispatch(event, args);
   };
 
   _public.off = function (eventString, handler, id) {
-    let event = _handlers[eventString];
+    var event = _handlers[eventString];
 
     if (utils.isEmpty(event) || (utils.isEmpty(event.que) && utils.isEmpty(event[id]))) {
       return;
@@ -127,15 +111,15 @@ const _public = (function () {
     }
 
     if (id) {
-      (event[id].que || []).forEach(function (_handler) {
-        let que = event[id].que;
+      utils._each(event[id].que, function (_handler) {
+        var que = event[id].que;
         if (_handler === handler) {
           que.splice(que.indexOf(_handler), 1);
         }
       });
     } else {
-      (event.que || []).forEach(function (_handler) {
-        let que = event.que;
+      utils._each(event.que, function (_handler) {
+        var que = event.que;
         if (_handler === handler) {
           que.splice(que.indexOf(_handler), 1);
         }
@@ -158,7 +142,13 @@ const _public = (function () {
    * @return {Array} array of events fired
    */
   _public.getEvents = function () {
-    return eventsFired.toArray().map(val => Object.assign({}, val))
+    var arrayCopy = [];
+    utils._each(eventsFired, function (value) {
+      var newProp = Object.assign({}, value);
+      arrayCopy.push(newProp);
+    });
+
+    return arrayCopy;
   };
 
   return _public;
@@ -166,8 +156,8 @@ const _public = (function () {
 
 utils._setEventEmitter(_public.emit.bind(_public));
 
-export const {on, off, get, getEvents, emit, addEvents, has} = _public;
+export const {on, off, get, getEvents, emit, addEvents} = _public;
 
 export function clearEvents() {
-  eventsFired.clear();
+  eventsFired.length = 0;
 }

@@ -17,16 +17,9 @@
 
 import { submodule } from '../src/hook.js';
 import { ajax } from '../src/ajax.js';
-import { generateUUID, createInvisibleIframe, insertElement, isEmpty, logError } from '../src/utils.js';
+import { generateUUID, insertElement, isEmpty, logError } from '../src/utils.js';
 import * as events from '../src/events.js';
 import CONSTANTS from '../src/constants.json';
-import { loadExternalScript } from '../src/adloader.js';
-import { auctionManager } from '../src/auctionManager.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
 
 /** @type {string} */
 const SUBMODULE_NAME = 'geoedge';
@@ -40,13 +33,9 @@ const PV_ID = generateUUID();
 /** @type {string} */
 const HOST_NAME = 'https://rumcdn.geoedge.be';
 /** @type {string} */
-const FILE_NAME_CLIENT = 'grumi.js';
-/** @type {string} */
-const FILE_NAME_INPAGE = 'grumi-ip.js';
+const FILE_NAME = 'grumi.js';
 /** @type {function} */
-export let getClientUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_CLIENT}`;
-/** @type {function} */
-export let getInPageUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_INPAGE}`;
+export let getClientUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME}`;
 /** @type {string} */
 export let wrapper
 /** @type {boolean} */;
@@ -74,38 +63,17 @@ export function setWrapper(responseText) {
   wrapper = responseText;
 }
 
-export function getInitialParams(key) {
-  let refererInfo = getRefererInfo();
-  let params = {
-    wver: 'pbjs',
-    wtype: 'pbjs-module',
-    key,
-    meta: {
-      topUrl: refererInfo.page
-    },
-    site: refererInfo.domain,
-    pimp: PV_ID,
-    fsRan: true,
-    frameApi: true
-  };
-  return params;
-}
-
-export function markAsLoaded() {
-  preloaded = true;
-}
-
 /**
  * preloads the client
- * @param {string} key
+  * @param {string} key
  */
 export function preloadClient(key) {
-  let iframe = createInvisibleIframe();
-  iframe.id = 'grumiFrame';
-  insertElement(iframe);
-  iframe.contentWindow.grumi = getInitialParams(key);
-  let url = getClientUrl(key);
-  loadExternalScript(url, SUBMODULE_NAME, markAsLoaded, iframe.contentDocument);
+  let link = document.createElement('link');
+  link.rel = 'preload';
+  link.as = 'script';
+  link.href = getClientUrl(key);
+  link.onload = () => { preloaded = true };
+  insertElement(link);
 }
 
 /**
@@ -129,7 +97,7 @@ export function wrapHtml(wrapper, html) {
  * @param {string} key
  * @return {Object}
  */
-export function getMacros(bid, key) {
+function getMacros(bid, key) {
   return {
     '${key}': key,
     '%%ADUNIT%%': bid.adUnitCode,
@@ -142,9 +110,7 @@ export function getMacros(bid, key) {
     '%_hbadomains': bid.meta && bid.meta.advertiserDomains,
     '%%PATTERN:hb_pb%%': bid.pbHg,
     '%%SITE%%': location.hostname,
-    '%_pimp%': PV_ID,
-    '%_hbCpm!': bid.cpm,
-    '%_hbCurrency!': bid.currency
+    '%_pimp%': PV_ID
   };
 }
 
@@ -211,8 +177,7 @@ function isSupportedBidder(bidder, paramsBidders) {
 function shouldWrap(bid, params) {
   let supportedBidder = isSupportedBidder(bid.bidderCode, params.bidders);
   let donePreload = params.wap ? preloaded : true;
-  let isGPT = params.gpt;
-  return wrapperReady && supportedBidder && donePreload && !isGPT;
+  return wrapperReady && supportedBidder && donePreload;
 }
 
 function conditionallyWrap(bidResponse, config, userConsent) {
@@ -222,41 +187,22 @@ function conditionallyWrap(bidResponse, config, userConsent) {
   }
 }
 
-function isBillingMessage(data, params) {
-  return data.key === params.key && data.impression;
-}
-
 /**
- * Fire billable events when our client sends a message
- * Messages will be sent only when:
- * a. applicable bids are wrapped
- * b. our code laoded and executed sucesfully
+ * Fire billable events for applicable bids
  */
 function fireBillableEventsForApplicableBids(params) {
-  window.addEventListener('message', function (message) {
-    let data = message.data;
-    if (isBillingMessage(data, params)) {
-      let winningBid = auctionManager.findBidByAdId(data.adId);
+  events.on(CONSTANTS.EVENTS.BID_WON, function (winningBid) {
+    if (shouldWrap(winningBid, params)) {
       events.emit(CONSTANTS.EVENTS.BILLABLE_EVENT, {
         vendor: SUBMODULE_NAME,
-        billingId: data.impressionId,
-        type: winningBid ? 'impression' : data.type,
-        transactionId: winningBid?.transactionId || data.transactionId,
-        auctionId: winningBid?.auctionId || data.auctionId,
-        bidId: winningBid?.requestId || data.requestId
+        billingId: generateUUID(),
+        type: 'impression',
+        transactionId: winningBid.transactionId,
+        auctionId: winningBid.auctionId,
+        bidId: winningBid.requestId
       });
     }
   });
-}
-
-/**
- * Loads Geoedge in page script that monitors all ad slots created by GPT
- * @param {Object} params
- */
-function setupInPage(params) {
-  window.grumi = params;
-  window.grumi.fromPrebid = true;
-  loadExternalScript(getInPageUrl(params.key), SUBMODULE_NAME);
 }
 
 function init(config, userConsent) {
@@ -265,12 +211,7 @@ function init(config, userConsent) {
     logError('missing key for geoedge RTD module provider');
     return false;
   }
-  if (params.gpt) {
-    setupInPage(params);
-  } else {
-    fetchWrapper(setWrapper);
-    preloadClient(params.key);
-  }
+  preloadClient(params.key);
   fireBillableEventsForApplicableBids(params);
   return true;
 }
@@ -278,12 +219,17 @@ function init(config, userConsent) {
 /** @type {RtdSubmodule} */
 export const geoedgeSubmodule = {
   /**
-   * used to link submodule with realTimeData
-   * @type {string}
-   */
+     * used to link submodule with realTimeData
+     * @type {string}
+     */
   name: SUBMODULE_NAME,
   init,
   onBidResponseEvent: conditionallyWrap
 };
 
-submodule('realTimeData', geoedgeSubmodule);
+export function beforeInit() {
+  fetchWrapper(setWrapper);
+  submodule('realTimeData', geoedgeSubmodule);
+}
+
+beforeInit();

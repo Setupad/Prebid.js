@@ -1,9 +1,8 @@
-import { logMessage, logError, isEmpty, isStr, isPlainObject, isArray, logWarn } from '../src/utils.js';
+import { tryAppendQueryString, logMessage, logError, isEmpty, isStr, isPlainObject, isArray, logWarn } from '../src/utils.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { config } from '../src/config.js';
 import { getStorageManager } from '../src/storageManager.js';
-import {tryAppendQueryString} from '../libraries/urlUtils/urlUtils.js';
 
 const GVLID = 28;
 const BIDDER_CODE = 'triplelift';
@@ -57,10 +56,6 @@ export const tripleliftAdapterSpec = {
       tlCall = tryAppendQueryString(tlCall, 'us_privacy', bidderRequest.uspConsent);
     }
 
-    if (bidderRequest && bidderRequest.fledgeEnabled) {
-      tlCall = tryAppendQueryString(tlCall, 'fledge', bidderRequest.fledgeEnabled);
-    }
-
     if (config.getConfig('coppa') === true) {
       tlCall = tryAppendQueryString(tlCall, 'coppa', true);
     }
@@ -80,29 +75,12 @@ export const tripleliftAdapterSpec = {
 
   interpretResponse: function(serverResponse, {bidderRequest}) {
     let bids = serverResponse.body.bids || [];
-    const paapi = serverResponse.body.paapi || [];
-
-    bids = bids.map(bid => _buildResponseObject(bidderRequest, bid));
-
-    if (paapi.length > 0) {
-      const fledgeAuctionConfigs = paapi.map(config => {
-        return {
-          bidId: bidderRequest.bids[config.imp_id].bidId,
-          config: config.auctionConfig
-        };
-      });
-
-      logMessage('Response with FLEDGE:', { bids, fledgeAuctionConfigs });
-      return {
-        bids,
-        fledgeAuctionConfigs
-      };
-    } else {
-      return bids;
-    }
+    return bids.map(function(bid) {
+      return _buildResponseObject(bidderRequest, bid);
+    });
   },
 
-  getUserSyncs: function(syncOptions, responses, gdprConsent, usPrivacy, gppConsent) {
+  getUserSyncs: function(syncOptions, responses, gdprConsent, usPrivacy) {
     let syncType = _getSyncType(syncOptions);
     if (!syncType) return;
 
@@ -122,15 +100,6 @@ export const tripleliftAdapterSpec = {
       syncEndpoint = tryAppendQueryString(syncEndpoint, 'us_privacy', usPrivacy);
     }
 
-    if (gppConsent) {
-      if (gppConsent.gppString) {
-        syncEndpoint = tryAppendQueryString(syncEndpoint, 'gpp', gppConsent.gppString);
-      }
-      if (gppConsent.applicableSections && gppConsent.applicableSections.length !== 0) {
-        syncEndpoint = tryAppendQueryString(syncEndpoint, 'gpp_sid', _filterSid(gppConsent.applicableSections));
-      }
-    }
-
     return [{
       type: syncType,
       url: syncEndpoint
@@ -142,13 +111,6 @@ function _getSyncType(syncOptions) {
   if (!syncOptions) return;
   if (syncOptions.iframeEnabled) return 'iframe';
   if (syncOptions.pixelEnabled) return 'image';
-}
-
-function _filterSid(sid) {
-  return sid.filter(element => {
-    return Number.isInteger(element);
-  })
-    .join(',');
 }
 
 function _buildPostBody(bidRequests, bidderRequest) {
@@ -207,11 +169,6 @@ function _buildPostBody(bidRequests, bidderRequest) {
   if (bidderRequest?.ortb2?.regs?.gpp) {
     data.regs = Object.assign({}, bidderRequest.ortb2.regs);
   }
-
-  if (bidderRequest?.ortb2) {
-    data.ext.ortb2 = Object.assign({}, bidderRequest.ortb2);
-  }
-
   return data;
 }
 
@@ -240,12 +197,7 @@ function _getORTBVideo(bidRequest) {
   } catch (err) {
     logWarn('Video size not defined', err);
   }
-  // honor existing publisher settings
-  if (video.context === 'instream') {
-    if (!video.placement) {
-      video.placement = 1;
-    }
-  }
+  if (video.context === 'instream') video.placement = 1;
   if (video.context === 'outstream') {
     if (!video.placement) {
       video.placement = 3

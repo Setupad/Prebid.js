@@ -1,11 +1,4 @@
-import {
-  deepAccess,
-  isAdUnitCodeMatchingSlot,
-  isGptPubadsDefined,
-  logInfo,
-  pick,
-  deepSetValue
-} from '../src/utils.js';
+import {deepAccess, isAdUnitCodeMatchingSlot, isGptPubadsDefined, logInfo, pick} from '../src/utils.js';
 import {config} from '../src/config.js';
 import {getHook} from '../src/hook.js';
 import {find} from '../src/polyfill.js';
@@ -22,8 +15,7 @@ export const appendGptSlots = adUnits => {
   }
 
   const adUnitMap = adUnits.reduce((acc, adUnit) => {
-    acc[adUnit.code] = acc[adUnit.code] || [];
-    acc[adUnit.code].push(adUnit);
+    acc[adUnit.code] = adUnit;
     return acc;
   }, {});
 
@@ -33,13 +25,15 @@ export const appendGptSlots = adUnits => {
       : isAdUnitCodeMatchingSlot(slot));
 
     if (matchingAdUnitCode) {
-      const adserver = {
-        name: 'gam',
-        adslot: sanitizeSlotPath(slot.getAdUnitPath())
-      };
-      adUnitMap[matchingAdUnitCode].forEach((adUnit) => {
-        deepSetValue(adUnit, 'ortb2Imp.ext.data.adserver', Object.assign({}, adUnit.ortb2Imp?.ext?.data?.adserver, adserver));
-      });
+      const adUnit = adUnitMap[matchingAdUnitCode];
+      adUnit.ortb2Imp = adUnit.ortb2Imp || {};
+      adUnit.ortb2Imp.ext = adUnit.ortb2Imp.ext || {};
+      adUnit.ortb2Imp.ext.data = adUnit.ortb2Imp.ext.data || {};
+
+      const context = adUnit.ortb2Imp.ext.data;
+      context.adserver = context.adserver || {};
+      context.adserver.name = 'gam';
+      context.adserver.adslot = sanitizeSlotPath(slot.getAdUnitPath());
     }
   });
 };

@@ -1,7 +1,6 @@
 import invisiblyAdapter from 'modules/invisiblyAnalyticsAdapter.js';
 import { expect } from 'chai';
 import {expectEvents} from '../../helpers/analytics.js';
-import {server} from '../../mocks/xhr.js';
 let events = require('src/events');
 let constants = require('src/constants.json');
 
@@ -170,7 +169,11 @@ describe('Invisibly Analytics Adapter test suite', function () {
 
   describe('Invisibly Analytic tests specs', function () {
     beforeEach(function () {
-      requests = server.requests;
+      xhr = sinon.useFakeXMLHttpRequest();
+      requests = [];
+      xhr.onCreate = (xhr) => {
+        requests.push(xhr);
+      };
       sinon.stub(events, 'getEvents').returns([]);
       sinon.spy(invisiblyAdapter, 'track');
     });
@@ -179,6 +182,7 @@ describe('Invisibly Analytics Adapter test suite', function () {
       invisiblyAdapter.disableAnalytics();
       events.getEvents.restore();
       invisiblyAdapter.track.restore();
+      xhr.restore();
     });
 
     describe('Send all events as & when they are captured', function () {

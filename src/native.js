@@ -1,6 +1,7 @@
 import {
   deepAccess,
   deepClone,
+  getKeyByValue,
   insertHtmlIntoIframe,
   isArray,
   isBoolean,
@@ -15,11 +16,6 @@ import {includes} from './polyfill.js';
 import {auctionManager} from './auctionManager.js';
 import CONSTANTS from './constants.json';
 import {NATIVE} from './mediaTypes.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
 
 export const nativeAdapters = [];
 
@@ -426,14 +422,12 @@ function assetsMessage(data, adObject, keys, {index = auctionManager.index} = {}
   return message;
 }
 
-const NATIVE_KEYS_INVERTED = Object.fromEntries(Object.entries(CONSTANTS.NATIVE_KEYS).map(([k, v]) => [v, k]));
-
 /**
  * Constructs a message object containing asset values for each of the
  * requested data keys.
  */
 export function getAssetMessage(data, adObject) {
-  const keys = data.assets.map((k) => NATIVE_KEYS_INVERTED[k]);
+  const keys = data.assets.map((k) => getKeyByValue(CONSTANTS.NATIVE_KEYS, k));
   return assetsMessage(data, adObject, keys);
 }
 
@@ -483,11 +477,6 @@ export function toOrtbNativeRequest(legacyNativeAssets) {
     if (NATIVE_KEYS_THAT_ARE_NOT_ASSETS.includes(key)) continue;
     if (!NATIVE_KEYS.hasOwnProperty(key)) {
       logError(`Unrecognized native asset code: ${key}. Asset will be ignored.`);
-      continue;
-    }
-
-    if (key === 'privacyLink') {
-      ortb.privacy = 1;
       continue;
     }
 
@@ -634,9 +623,6 @@ export function fromOrtbNativeRequest(openRTBRequest) {
         oldNativeObject[prebidAssetName].len = asset.data.len;
       }
     }
-    if (openRTBRequest.privacy) {
-      oldNativeObject.privacyLink = { required: false };
-    }
     // video was not supported by old prebid assets
   }
   return oldNativeObject;
@@ -710,11 +696,8 @@ export function legacyPropertiesToOrtbNative(legacyNative) {
         // in general, native trackers seem to be neglected and/or broken
         response.jstracker = Array.isArray(value) ? value.join('') : value;
         break;
-      case 'privacyLink':
-        response.privacy = value;
-        break;
     }
-  });
+  })
   return response;
 }
 
@@ -797,8 +780,8 @@ export function toLegacyResponse(ortbResponse, ortbRequest) {
   legacyResponse.impressionTrackers = [];
   let jsTrackers = [];
 
-  if (ortbResponse.imptrackers) {
-    legacyResponse.impressionTrackers.push(...ortbResponse.imptrackers);
+  if (ortbRequest?.imptrackers) {
+    legacyResponse.impressionTrackers.push(...ortbRequest.imptrackers);
   }
   for (const eventTracker of ortbResponse?.eventtrackers || []) {
     if (eventTracker.event === TRACKER_EVENTS.impression && eventTracker.method === TRACKER_METHODS.img) {

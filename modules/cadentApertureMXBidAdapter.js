@@ -1,6 +1,7 @@
 import {
   _each,
-  deepAccess, getBidIdParameter,
+  deepAccess,
+  getBidIdParameter,
   isArray,
   isFn,
   isPlainObject,
@@ -169,22 +170,6 @@ export const cadentAdapter = {
 
     return cadentData;
   },
-
-  getGpp: (bidRequest, cadentData) => {
-    if (bidRequest.gppConsent) {
-      const {gppString: gpp, applicableSections: gppSid} = bidRequest.gppConsent;
-      if (cadentData.regs) {
-        cadentData.regs.gpp = gpp;
-        cadentData.regs.gpp_sid = gppSid;
-      } else {
-        cadentData.regs = {
-          gpp: gpp,
-          gpp_sid: gppSid
-        }
-      }
-    }
-    return cadentData;
-  },
   getSupplyChain: (bidderRequest, cadentData) => {
     if (bidderRequest.bids[0] && bidderRequest.bids[0].schain) {
       cadentData.source = {
@@ -276,7 +261,7 @@ export const spec = {
       let isVideo = !!bid.mediaTypes.video;
       let data = {
         id: bid.bidId,
-        tid: bid.ortb2Imp?.ext?.tid,
+        tid: bid.transactionId,
         tagid,
         secure
       };
@@ -296,7 +281,7 @@ export const spec = {
     });
 
     let cadentData = {
-      id: bidderRequest.auctionId ?? bidderRequest.bidderRequestId,
+      id: bidderRequest.auctionId,
       imp: cadentImps,
       device,
       site,
@@ -305,7 +290,6 @@ export const spec = {
     };
 
     cadentData = cadentAdapter.getGdpr(bidderRequest, Object.assign({}, cadentData));
-    cadentData = cadentAdapter.getGpp(bidderRequest, Object.assign({}, cadentData));
     cadentData = cadentAdapter.getSupplyChain(bidderRequest, Object.assign({}, cadentData));
     if (bidderRequest && bidderRequest.uspConsent) {
       cadentData.us_privacy = bidderRequest.uspConsent;
@@ -373,7 +357,7 @@ export const spec = {
     }
     return cadentBidResponses;
   },
-  getUserSyncs: function (syncOptions, responses, gdprConsent, uspConsent, gppConsent) {
+  getUserSyncs: function (syncOptions, responses, gdprConsent, uspConsent) {
     const syncs = [];
     const consentParams = [];
     if (syncOptions.iframeEnabled) {
@@ -388,14 +372,6 @@ export const spec = {
       }
       if (uspConsent && typeof uspConsent.consentString === 'string') {
         consentParams.push(`usp=${uspConsent.consentString}`);
-      }
-      if (gppConsent && typeof gppConsent === 'object') {
-        if (gppConsent.gppString && typeof gppConsent.gppString === 'string') {
-          consentParams.push(`gpp=${gppConsent.gppString}`);
-        }
-        if (gppConsent.applicableSections && typeof gppConsent.applicableSections === 'object') {
-          consentParams.push(`gpp_sid=${gppConsent.applicableSections}`);
-        }
       }
       if (consentParams.length > 0) {
         url = url + '?' + consentParams.join('&');

@@ -1,16 +1,14 @@
 'use strict';
 
-import {deepAccess, deepSetValue, isFn, isPlainObject, logWarn, mergeDeep} from '../src/utils.js';
+import {deepAccess, deepSetValue, getAdUnitSizes, isFn, isPlainObject, logWarn} from '../src/utils.js';
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {BANNER, VIDEO} from '../src/mediaTypes.js';
 import {includes} from '../src/polyfill.js';
 import {config} from '../src/config.js';
-import {getAdUnitSizes} from '../libraries/sizeUtils/sizeUtils.js';
 
 const BID_SCHEME = 'https://';
 const BID_DOMAIN = 'technoratimedia.com';
-const USER_SYNC_IFRAME_URL = 'https://ad-cdn.technoratimedia.com/html/usersync.html';
-const USER_SYNC_PIXEL_URL = 'https://sync.technoratimedia.com/services';
+const USER_SYNC_HOST = 'https://ad-cdn.technoratimedia.com';
 const VIDEO_PARAMS = [ 'minduration', 'maxduration', 'startdelay', 'placement', 'linearity', 'mimes', 'protocols', 'api' ];
 const BLOCKED_AD_SIZES = [
   '1x1',
@@ -40,11 +38,11 @@ export const spec = {
       return;
     }
     const refererInfo = bidderRequest.refererInfo;
-    // start with some defaults, overridden by anything set in ortb2, if provided.
-    const openRtbBidRequest = mergeDeep({
+    const openRtbBidRequest = {
       id: bidderRequest.bidderRequestId,
       site: {
-        domain: refererInfo.domain,
+        // TODO: does the fallback make sense here?
+        domain: refererInfo.domain || location.hostname,
         page: refererInfo.page,
         ref: refererInfo.ref
       },
@@ -52,7 +50,7 @@ export const spec = {
         ua: navigator.userAgent
       },
       imp: []
-    }, bidderRequest.ortb2 || {});
+    };
 
     const tmax = bidderRequest.timeout;
     if (tmax) {
@@ -103,17 +101,9 @@ export const spec = {
       }
     });
 
-    // Move us_privacy from regs.ext to regs if there isn't already a us_privacy in regs
-    if (openRtbBidRequest.regs?.ext?.us_privacy && !openRtbBidRequest.regs?.us_privacy) {
-      deepSetValue(openRtbBidRequest, 'regs.us_privacy', openRtbBidRequest.regs.ext.us_privacy);
-    }
-
-    // Remove regs.ext.us_privacy
-    if (openRtbBidRequest.regs?.ext?.us_privacy) {
-      delete openRtbBidRequest.regs.ext.us_privacy;
-      if (Object.keys(openRtbBidRequest.regs.ext).length < 1) {
-        delete openRtbBidRequest.regs.ext;
-      }
+    // CCPA
+    if (bidderRequest.uspConsent) {
+      deepSetValue(openRtbBidRequest, 'regs.ext.us_privacy', bidderRequest.uspConsent);
     }
 
     // User ID
@@ -127,7 +117,7 @@ export const spec = {
     if (openRtbBidRequest.imp.length && seatId) {
       return {
         method: 'POST',
-        url: `${BID_SCHEME}${seatId}.${BID_DOMAIN}/openrtb/bids/${seatId}?src=pbjs%2F$prebid.version$`,
+        url: `${BID_SCHEME}${seatId}.${BID_DOMAIN}/openrtb/bids/${seatId}?src=$$REPO_AND_VERSION$$`,
         data: openRtbBidRequest,
         options: {
           contentType: 'application/json',
@@ -224,6 +214,7 @@ export const spec = {
     };
 
     if (!serverResponse.body || typeof serverResponse.body != 'object') {
+      logWarn('IMDS: server returned empty/non-json response: ' + JSON.stringify(serverResponse.body));
       return;
     }
     const {id, seatbid: seatbids} = serverResponse.body;
@@ -303,31 +294,16 @@ export const spec = {
     }
     return bids;
   },
-  getUserSyncs: function(syncOptions, serverResponses, gdprConsent, uspConsent, gppConsent) {
+  getUserSyncs: function (syncOptions, serverResponses) {
     const syncs = [];
-    const queryParams = ['src=pbjs%2F$prebid.version$'];
-    if (gdprConsent) {
-      queryParams.push(`gdpr=${Number(gdprConsent.gdprApplies && 1)}&consent=${encodeURIComponent(gdprConsent.consentString || '')}`);
-    }
-    if (uspConsent) {
-      queryParams.push('us_privacy=' + encodeURIComponent(uspConsent));
-    }
-    if (gppConsent) {
-      queryParams.push('gpp=' + encodeURIComponent(gppConsent.gppString || '') + '&gppsid=' + encodeURIComponent((gppConsent.applicableSections || []).join(',')));
-    }
-
     if (syncOptions.iframeEnabled) {
       syncs.push({
         type: 'iframe',
-        url: `${USER_SYNC_IFRAME_URL}?${queryParams.join('&')}`
+        url: `${USER_SYNC_HOST}/html/usersync.html?src=$$REPO_AND_VERSION$$`
       });
-    } else if (syncOptions.pixelEnabled) {
-      syncs.push({
-        type: 'image',
-        url: `${USER_SYNC_PIXEL_URL}?srv=cs&${queryParams.join('&')}`
-      });
+    } else {
+      logWarn('IMDS: Please enable iframe based user sync.');
     }
-
     return syncs;
   }
 };

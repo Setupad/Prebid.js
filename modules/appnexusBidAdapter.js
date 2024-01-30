@@ -1,10 +1,17 @@
 import {
+  chunk,
+  convertCamelToUnderscore,
+  convertTypes,
   createTrackPixelHtml,
   deepAccess,
   deepClone,
+  fill,
   getBidRequest,
+  getMaxValueFromArray,
+  getMinValueFromArray,
   getParameterByName,
   getUniqueIdentifierStr,
+  getWindowFromDocument,
   isArray,
   isArrayOfNums,
   isEmpty,
@@ -33,15 +40,7 @@ import {
   getANKewyordParamFromMaps,
   getANKeywordParam,
   transformBidderParamKeywords
-} from '../libraries/appnexusUtils/anKeywords.js';
-import {convertCamelToUnderscore, fill} from '../libraries/appnexusUtils/anUtils.js';
-import {convertTypes} from '../libraries/transformParamsUtils/convertTypes.js';
-import {chunk} from '../libraries/chunk/chunk.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
+} from '../libraries/appnexusKeywords/anKeywords.js';
 
 const BIDDER_CODE = 'appnexus';
 const URL = 'https://ib.adnxs.com/ut/v3/prebid';
@@ -115,7 +114,6 @@ export const spec = {
     { code: 'beintoo', gvlid: 618 },
     { code: 'projectagora', gvlid: 1032 },
     { code: 'uol', gvlid: 32 },
-    { code: 'adzymic', gvlid: 32 },
   ],
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
 
@@ -349,36 +347,6 @@ export const spec = {
       if (eids.length) {
         payload.eids = eids;
       }
-    }
-
-    if (bidderRequest?.ortb2?.regs?.ext?.dsa) {
-      const pubDsaObj = bidderRequest.ortb2.regs.ext.dsa;
-      const dsaObj = {};
-      ['required', 'pubrender', 'datatopub'].forEach((dsaKey) => {
-        if (isNumber(pubDsaObj[dsaKey])) {
-          if (dsaKey === 'required') {
-            // our client-side endpoint has a different name for the 'required' field
-            // ...this is the only exception to the openrtb spec for these fields
-            dsaObj.dsainfo = pubDsaObj[dsaKey];
-          } else {
-            dsaObj[dsaKey] = pubDsaObj[dsaKey];
-          }
-        }
-      });
-
-      if (isArray(pubDsaObj.transparency) && pubDsaObj.transparency.every((v) => isPlainObject(v))) {
-        const tpData = [];
-        pubDsaObj.transparency.forEach((tpObj) => {
-          if (isStr(tpObj.domain) && tpObj.domain != '' && isArray(tpObj.params) && tpObj.params.every((v) => isNumber(v))) {
-            tpData.push(tpObj);
-          }
-        });
-        if (tpData.length > 0) {
-          dsaObj.transparency = tpData;
-        }
-      }
-
-      if (!isEmpty(dsaObj)) payload.dsa = dsaObj;
     }
 
     if (tags[0].publisher_id) {
@@ -620,10 +588,6 @@ function newBid(serverBid, rtbBid, bidderRequest) {
     bid.meta = Object.assign({}, bid.meta, { advertiserId: rtbBid.advertiser_id });
   }
 
-  if (rtbBid.dsa) {
-    bid.meta = Object.assign({}, bid.meta, { dsa: rtbBid.dsa });
-  }
-
   // temporary function; may remove at later date if/when adserver fully supports dchain
   function setupDChain(rtbBid) {
     let dchain = {
@@ -824,7 +788,7 @@ function bidToTag(bid) {
     tag.keywords = auKeywords;
   }
 
-  let gpid = deepAccess(bid, 'ortb2Imp.ext.gpid') || deepAccess(bid, 'ortb2Imp.ext.data.pbadslot');
+  let gpid = deepAccess(bid, 'ortb2Imp.ext.data.pbadslot');
   if (gpid) {
     tag.gpid = gpid;
   }
@@ -1067,7 +1031,7 @@ function createAdPodRequest(tags, adPodBid) {
   const { durationRangeSec, requireExactDuration } = adPodBid.mediaTypes.video;
 
   const numberOfPlacements = getAdPodPlacementNumber(adPodBid.mediaTypes.video);
-  const maxDuration = Math.max(...durationRangeSec);
+  const maxDuration = getMaxValueFromArray(durationRangeSec);
 
   const tagToDuplicate = tags.filter(tag => tag.uuid === adPodBid.bidId);
   let request = fill(...tagToDuplicate, numberOfPlacements);
@@ -1093,7 +1057,7 @@ function createAdPodRequest(tags, adPodBid) {
 
 function getAdPodPlacementNumber(videoParams) {
   const { adPodDurationSec, durationRangeSec, requireExactDuration } = videoParams;
-  const minAllowedDuration = Math.min(...durationRangeSec);
+  const minAllowedDuration = getMinValueFromArray(durationRangeSec);
   const numberOfPlacements = Math.floor(adPodDurationSec / minAllowedDuration);
 
   return requireExactDuration
@@ -1178,7 +1142,7 @@ function outstreamRender(bid, doc) {
   hideSASIframe(bid.adUnitCode);
   // push to render queue because ANOutstreamVideo may not be loaded yet
   bid.renderer.push(() => {
-    const win = doc?.defaultView || window;
+    const win = getWindowFromDocument(doc) || window;
     win.ANOutstreamVideo.renderAd({
       tagId: bid.adResponse.tag_id,
       sizes: [bid.getSize().split('x')],

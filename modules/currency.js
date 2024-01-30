@@ -7,24 +7,29 @@ import {getHook} from '../src/hook.js';
 import {defer} from '../src/utils/promise.js';
 import {registerOrtbProcessor, REQUEST} from '../src/pbjsORTB.js';
 import {timedBidResponseHook} from '../src/utils/perfMetrics.js';
-import {on as onEvent, off as offEvent} from '../src/events.js';
 
 const DEFAULT_CURRENCY_RATE_URL = 'https://cdn.jsdelivr.net/gh/prebid/currency-file@1/latest.json?date=$$TODAY$$';
 const CURRENCY_RATE_PRECISION = 4;
 
-let ratesURL;
-let bidResponseQueue = [];
-let conversionCache = {};
-let currencyRatesLoaded = false;
-let needToCallForCurrencyFile = true;
-let adServerCurrency = 'USD';
+var bidResponseQueue = [];
+var conversionCache = {};
+var currencyRatesLoaded = false;
+var needToCallForCurrencyFile = true;
+var adServerCurrency = 'USD';
 
 export var currencySupportEnabled = false;
 export var currencyRates = {};
-let bidderCurrencyDefault = {};
-let defaultRates;
+var bidderCurrencyDefault = {};
+var defaultRates;
 
-export let responseReady = defer();
+export const ready = (() => {
+  let ctl;
+  function reset() {
+    ctl = defer();
+  }
+  reset();
+  return {done: () => ctl.resolve(), reset, promise: () => ctl.promise}
+})();
 
 /**
  * Configuration function for currency
@@ -59,7 +64,7 @@ export let responseReady = defer();
  *  there is an error loading the config.conversionRateFile.
  */
 export function setConfig(config) {
-  ratesURL = DEFAULT_CURRENCY_RATE_URL;
+  let url = DEFAULT_CURRENCY_RATE_URL;
 
   if (typeof config.rates === 'object') {
     currencyRates.conversions = config.rates;
@@ -81,14 +86,14 @@ export function setConfig(config) {
     adServerCurrency = config.adServerCurrency;
     if (config.conversionRateFile) {
       logInfo('currency using override conversionRateFile:', config.conversionRateFile);
-      ratesURL = config.conversionRateFile;
+      url = config.conversionRateFile;
     }
 
     // see if the url contains a date macro
     // this is a workaround to the fact that jsdelivr doesn't currently support setting a 24-hour HTTP cache header
     // So this is an approach to let the browser cache a copy of the file each day
     // We should remove the macro once the CDN support a day-level HTTP cache setting
-    const macroLocation = ratesURL.indexOf('$$TODAY$$');
+    const macroLocation = url.indexOf('$$TODAY$$');
     if (macroLocation !== -1) {
       // get the date to resolve the macro
       const d = new Date();
@@ -99,10 +104,10 @@ export function setConfig(config) {
       const todaysDate = `${d.getFullYear()}${month}${day}`;
 
       // replace $$TODAY$$ with todaysDate
-      ratesURL = `${ratesURL.substring(0, macroLocation)}${todaysDate}${ratesURL.substring(macroLocation + 9, ratesURL.length)}`;
+      url = `${url.substring(0, macroLocation)}${todaysDate}${url.substring(macroLocation + 9, url.length)}`;
     }
 
-    initCurrency();
+    initCurrency(url);
   } else {
     // currency support is disabled, setting defaults
     logInfo('disabling currency support');
@@ -123,37 +128,7 @@ function errorSettingsRates(msg) {
   }
 }
 
-function loadRates() {
-  if (needToCallForCurrencyFile) {
-    needToCallForCurrencyFile = false;
-    currencyRatesLoaded = false;
-    ajax(ratesURL,
-      {
-        success: function (response) {
-          try {
-            currencyRates = JSON.parse(response);
-            logInfo('currencyRates set to ' + JSON.stringify(currencyRates));
-            conversionCache = {};
-            currencyRatesLoaded = true;
-            processBidResponseQueue();
-          } catch (e) {
-            errorSettingsRates('Failed to parse currencyRates response: ' + response);
-          }
-        },
-        error: function (...args) {
-          errorSettingsRates(...args);
-          currencyRatesLoaded = true;
-          processBidResponseQueue();
-          needToCallForCurrencyFile = true;
-        }
-      }
-    );
-  } else {
-    processBidResponseQueue();
-  }
-}
-
-function initCurrency() {
+function initCurrency(url) {
   conversionCache = {};
   currencySupportEnabled = true;
 
@@ -162,19 +137,39 @@ function initCurrency() {
   // Adding conversion function to prebid global for external module and on page use
   getGlobal().convertCurrency = (cpm, fromCurrency, toCurrency) => parseFloat(cpm) * getCurrencyConversion(fromCurrency, toCurrency);
   getHook('addBidResponse').before(addBidResponseHook, 100);
-  getHook('responsesReady').before(responsesReadyHook);
-  onEvent(CONSTANTS.EVENTS.AUCTION_TIMEOUT, rejectOnAuctionTimeout);
-  onEvent(CONSTANTS.EVENTS.AUCTION_INIT, loadRates);
-  loadRates();
+
+  // call for the file if we haven't already
+  if (needToCallForCurrencyFile) {
+    needToCallForCurrencyFile = false;
+    ajax(url,
+      {
+        success: function (response) {
+          try {
+            currencyRates = JSON.parse(response);
+            logInfo('currencyRates set to ' + JSON.stringify(currencyRates));
+            conversionCache = {};
+            currencyRatesLoaded = true;
+            processBidResponseQueue();
+            ready.done();
+          } catch (e) {
+            errorSettingsRates('Failed to parse currencyRates response: ' + response);
+          }
+        },
+        error: function (...args) {
+          errorSettingsRates(...args);
+          ready.done();
+        }
+      }
+    );
+  } else {
+    ready.done();
+  }
 }
 
 function resetCurrency() {
   logInfo('Uninstalling addBidResponse decorator for currency module', arguments);
 
   getHook('addBidResponse').getHooks({hook: addBidResponseHook}).remove();
-  getHook('responsesReady').getHooks({hook: responsesReadyHook}).remove();
-  offEvent(CONSTANTS.EVENTS.AUCTION_TIMEOUT, rejectOnAuctionTimeout);
-  offEvent(CONSTANTS.EVENTS.AUCTION_INIT, loadRates);
   delete getGlobal().convertCurrency;
 
   adServerCurrency = 'USD';
@@ -184,11 +179,6 @@ function resetCurrency() {
   needToCallForCurrencyFile = true;
   currencyRates = {};
   bidderCurrencyDefault = {};
-  responseReady = defer();
-}
-
-function responsesReadyHook(next, ready) {
-  next(ready.then(() => responseReady.promise));
 }
 
 export const addBidResponseHook = timedBidResponseHook('currency', function addBidResponseHook(fn, adUnitCode, bid, reject) {
@@ -221,25 +211,24 @@ export const addBidResponseHook = timedBidResponseHook('currency', function addB
   if (bid.currency === adServerCurrency) {
     return fn.call(this, adUnitCode, bid, reject);
   }
-  bidResponseQueue.push([fn, this, adUnitCode, bid, reject]);
+
+  bidResponseQueue.push(wrapFunction(fn, this, [adUnitCode, bid, reject]));
   if (!currencySupportEnabled || currencyRatesLoaded) {
     processBidResponseQueue();
+  } else {
+    fn.untimed.bail(ready.promise());
   }
 });
 
-function rejectOnAuctionTimeout({auctionId}) {
-  bidResponseQueue = bidResponseQueue.filter(([fn, ctx, adUnitCode, bid, reject]) => {
-    if (bid.auctionId === auctionId) {
-      reject(CONSTANTS.REJECTION_REASON.CANNOT_CONVERT_CURRENCY)
-    } else {
-      return true;
-    }
-  });
-}
-
 function processBidResponseQueue() {
   while (bidResponseQueue.length > 0) {
-    const [fn, ctx, adUnitCode, bid, reject] = bidResponseQueue.shift();
+    (bidResponseQueue.shift())();
+  }
+}
+
+function wrapFunction(fn, context, params) {
+  return function() {
+    let bid = params[1];
     if (bid !== undefined && 'currency' in bid && 'cpm' in bid) {
       let fromCurrency = bid.currency;
       try {
@@ -250,13 +239,12 @@ function processBidResponseQueue() {
         }
       } catch (e) {
         logWarn('getCurrencyConversion threw error: ', e);
-        reject(CONSTANTS.REJECTION_REASON.CANNOT_CONVERT_CURRENCY);
-        continue;
+        params[2](CONSTANTS.REJECTION_REASON.CANNOT_CONVERT_CURRENCY);
+        return;
       }
     }
-    fn.call(ctx, adUnitCode, bid, reject);
-  }
-  responseReady.resolve();
+    return fn.apply(context, params);
+  };
 }
 
 function getCurrencyConversion(fromCurrency, toCurrency = adServerCurrency) {

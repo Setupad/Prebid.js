@@ -1,17 +1,18 @@
 import {
-  actionTimeout,
-  consentTimeout,
-  gdprScope,
-  loadConsentData,
+  setConsentConfig,
   requestBidsHook,
   resetConsentData,
-  setConsentConfig,
+  userCMP,
+  consentTimeout,
+  actionTimeout,
   staticConsentData,
-  userCMP
+  gdprScope,
+  loadConsentData,
+  setActionTimeout
 } from 'modules/consentManagement.js';
-import {gdprDataHandler} from 'src/adapterManager.js';
+import { gdprDataHandler } from 'src/adapterManager.js';
 import * as utils from 'src/utils.js';
-import {config} from 'src/config.js';
+import { config } from 'src/config.js';
 import 'src/prebid.js';
 
 let expect = require('chai').expect;
@@ -486,6 +487,15 @@ describe('consentManagement', function () {
 
         testIFramedPage('with/JSON response', false, 'abc12345234', 2);
         testIFramedPage('with/String response', true, 'abc12345234', 2);
+
+        it('should contain correct v2 CMP definition', (done) => {
+          setConsentConfig(goodConfig);
+          requestBidsHook(() => {
+            const nbArguments = window.__tcfapi.toString().split('\n')[0].split(', ').length;
+            expect(nbArguments).to.equal(4);
+            done();
+          }, {});
+        });
       });
     });
 

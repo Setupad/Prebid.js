@@ -1095,15 +1095,17 @@ describe('smaatoBidAdapterTest', () => {
             criteoId: '123456',
             tdid: '89145'
           },
-          userIdAsEids: [
-            {id: 1}, {id: 2}
-          ]
+          userIdAsEids: createEidsArray({
+            criteoId: '123456',
+            tdid: '89145'
+          })
         };
 
         const reqs = spec.buildRequests([userIdBidRequest], defaultBidderRequest);
 
         const req = extractPayloadOfFirstAndOnlyRequest(reqs);
-        expect(req.user.ext.eids).to.eql(userIdBidRequest.userIdAsEids);
+        expect(req.user.ext.eids).to.exist;
+        expect(req.user.ext.eids).to.have.length(2);
       });
     });
 

@@ -1,5 +1,4 @@
 import {MODULE_TYPE_BIDDER} from './modules.js';
-import {hook} from '../hook.js';
 
 /**
  * Component ID - who is trying to perform the activity?
@@ -55,8 +54,6 @@ export function activityParamsBuilder(resolveAlias) {
     if (moduleType === MODULE_TYPE_BIDDER) {
       defaults[ACTIVITY_PARAM_ADAPTER_CODE] = resolveAlias(moduleName);
     }
-    return buildActivityParams(Object.assign(defaults, params));
+    return Object.assign(defaults, params);
   }
 }
-
-export const buildActivityParams = hook('sync', params => params);

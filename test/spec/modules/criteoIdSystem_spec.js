@@ -52,21 +52,17 @@ describe('CriteoId module', function () {
   });
 
   const storageTestCases = [
-    { submoduleConfig: undefined, cookie: 'bidId', localStorage: 'bidId2', expected: 'bidId' },
-    { submoduleConfig: undefined, cookie: 'bidId', localStorage: undefined, expected: 'bidId' },
-    { submoduleConfig: undefined, cookie: undefined, localStorage: 'bidId', expected: 'bidId' },
-    { submoduleConfig: undefined, cookie: undefined, localStorage: undefined, expected: undefined },
-    { submoduleConfig: { storage: { type: 'cookie' } }, cookie: 'bidId', localStorage: 'bidId2', expected: 'bidId' },
-    { submoduleConfig: { storage: { type: 'cookie' } }, cookie: undefined, localStorage: 'bidId2', expected: undefined },
-    { submoduleConfig: { storage: { type: 'html5' } }, cookie: 'bidId', localStorage: 'bidId2', expected: 'bidId2' },
-    { submoduleConfig: { storage: { type: 'html5' } }, cookie: 'bidId', localStorage: undefined, expected: undefined },
+    { cookie: 'bidId', localStorage: 'bidId2', expected: 'bidId' },
+    { cookie: 'bidId', localStorage: undefined, expected: 'bidId' },
+    { cookie: undefined, localStorage: 'bidId', expected: 'bidId' },
+    { cookie: undefined, localStorage: undefined, expected: undefined },
   ]
 
-  storageTestCases.forEach(testCase => it('getId() should return the user id depending on the storage type enabled and the data available', function () {
+  storageTestCases.forEach(testCase => it('getId() should return the bidId when it exists in local storages', function () {
     getCookieStub.withArgs('cto_bidid').returns(testCase.cookie);
     getLocalStorageStub.withArgs('cto_bidid').returns(testCase.localStorage);
 
-    const result = criteoIdSubmodule.getId(testCase.submoduleConfig);
+    const result = criteoIdSubmodule.getId();
     expect(result.id).to.be.deep.equal(testCase.expected ? { criteoId: testCase.expected } : undefined);
     expect(result.callback).to.be.a('function');
   }))
@@ -99,24 +95,22 @@ describe('CriteoId module', function () {
   });
 
   const responses = [
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: 'bundle', bidId: 'bidId', acwsUrl: 'acwsUrl' },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: 'bundle', bidId: undefined, acwsUrl: 'acwsUrl' },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: 'bundle', bidId: 'bidId', acwsUrl: undefined },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: undefined, bidId: 'bidId', acwsUrl: 'acwsUrl' },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: 'bundle', bidId: undefined, acwsUrl: undefined },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: undefined, bidId: 'bidId', acwsUrl: undefined },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: undefined, bidId: undefined, acwsUrl: 'acwsUrl' },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: undefined, bidId: undefined, acwsUrl: ['acwsUrl', 'acwsUrl2'] },
-    { submoduleConfig: undefined, shouldWriteCookie: true, shouldWriteLocalStorage: true, bundle: undefined, bidId: undefined, acwsUrl: undefined },
-    { submoduleConfig: { storage: { type: 'cookie' } }, shouldWriteCookie: true, shouldWriteLocalStorage: false, bundle: 'bundle', bidId: 'bidId', acwsUrl: undefined },
-    { submoduleConfig: { storage: { type: 'html5' } }, shouldWriteCookie: false, shouldWriteLocalStorage: true, bundle: 'bundle', bidId: 'bidId', acwsUrl: undefined },
+    { bundle: 'bundle', bidId: 'bidId', acwsUrl: 'acwsUrl' },
+    { bundle: 'bundle', bidId: undefined, acwsUrl: 'acwsUrl' },
+    { bundle: 'bundle', bidId: 'bidId', acwsUrl: undefined },
+    { bundle: undefined, bidId: 'bidId', acwsUrl: 'acwsUrl' },
+    { bundle: 'bundle', bidId: undefined, acwsUrl: undefined },
+    { bundle: undefined, bidId: 'bidId', acwsUrl: undefined },
+    { bundle: undefined, bidId: undefined, acwsUrl: 'acwsUrl' },
+    { bundle: undefined, bidId: undefined, acwsUrl: ['acwsUrl', 'acwsUrl2'] },
+    { bundle: undefined, bidId: undefined, acwsUrl: undefined },
   ]
 
   responses.forEach(response => describe('test user sync response behavior', function () {
     const expirationTs = new Date(nowTimestamp + cookiesMaxAge).toString();
 
     it('should save bidId if it exists', function () {
-      const result = criteoIdSubmodule.getId(response.submoduleConfig);
+      const result = criteoIdSubmodule.getId();
       result.callback((id) => {
         expect(id).to.be.deep.equal(response.bidId ? { criteoId: response.bidId } : undefined);
       });
@@ -133,35 +127,16 @@ describe('CriteoId module', function () {
         expect(setCookieStub.calledWith('cto_bundle')).to.be.false;
         expect(setLocalStorageStub.calledWith('cto_bundle')).to.be.false;
       } else if (response.bundle) {
-        if (response.shouldWriteCookie) {
-          expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.com')).to.be.true;
-          expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.testdev.com')).to.be.true;
-        } else {
-          expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.com')).to.be.false;
-          expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.testdev.com')).to.be.false;
-        }
-
-        if (response.shouldWriteLocalStorage) {
-          expect(setLocalStorageStub.calledWith('cto_bundle', response.bundle)).to.be.true;
-        } else {
-          expect(setLocalStorageStub.calledWith('cto_bundle', response.bundle)).to.be.false;
-        }
+        expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.com')).to.be.true;
+        expect(setCookieStub.calledWith('cto_bundle', response.bundle, expirationTs, null, '.testdev.com')).to.be.true;
+        expect(setLocalStorageStub.calledWith('cto_bundle', response.bundle)).to.be.true;
         expect(triggerPixelStub.called).to.be.false;
       }
 
       if (response.bidId) {
-        if (response.shouldWriteCookie) {
-          expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.com')).to.be.true;
-          expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.testdev.com')).to.be.true;
-        } else {
-          expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.com')).to.be.false;
-          expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.testdev.com')).to.be.false;
-        }
-        if (response.shouldWriteLocalStorage) {
-          expect(setLocalStorageStub.calledWith('cto_bidid', response.bidId)).to.be.true;
-        } else {
-          expect(setLocalStorageStub.calledWith('cto_bidid', response.bidId)).to.be.false;
-        }
+        expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.com')).to.be.true;
+        expect(setCookieStub.calledWith('cto_bidid', response.bidId, expirationTs, null, '.testdev.com')).to.be.true;
+        expect(setLocalStorageStub.calledWith('cto_bidid', response.bidId)).to.be.true;
       } else {
         expect(setCookieStub.calledWith('cto_bidid', '', pastDateString, null, '.com')).to.be.true;
         expect(setCookieStub.calledWith('cto_bidid', '', pastDateString, null, '.testdev.com')).to.be.true;

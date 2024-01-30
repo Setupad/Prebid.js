@@ -1,14 +1,7 @@
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {BANNER} from '../src/mediaTypes.js';
-import {buildUrl, logInfo, parseSizesInput, triggerPixel} from '../src/utils.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerRequest} ServerRequest
- * @typedef {import('../src/adapters/bidderFactory.js').BidderSpec} BidderSpec
- * @typedef {import('../src/adapters/bidderFactory.js').TimedOutBid} TimedOutBid
- */
+import { logInfo, buildUrl, triggerPixel, parseSizesInput } from '../src/utils.js';
+import { getStorageManager } from '../src/storageManager.js';
 
 const ADQUERY_GVLID = 902;
 const ADQUERY_BIDDER_CODE = 'adquery';
@@ -18,6 +11,7 @@ const ADQUERY_USER_SYNC_DOMAIN = ADQUERY_BIDDER_DOMAIN_PROTOCOL + '://' + ADQUER
 const ADQUERY_DEFAULT_CURRENCY = 'PLN';
 const ADQUERY_NET_REVENUE = true;
 const ADQUERY_TTL = 360;
+const storage = getStorageManager({bidderCode: ADQUERY_BIDDER_CODE});
 
 /** @type {BidderSpec} */
 export const spec = {
@@ -25,8 +19,7 @@ export const spec = {
   gvlid: ADQUERY_GVLID,
   supportedMediaTypes: [BANNER],
 
-  /**
-   * f
+  /** f
    * @param {object} bid
    * @return {boolean}
    */
@@ -65,6 +58,7 @@ export const spec = {
     logInfo(request);
     logInfo(response);
 
+    let qid = null;
     const res = response && response.body && response.body.data;
     let bidResponses = [];
 
@@ -92,6 +86,17 @@ export const spec = {
     };
     bidResponses.push(bidResponse);
     logInfo('bidResponses', bidResponses);
+
+    if (res && res.qid) {
+      if (storage.getDataFromLocalStorage('qid')) {
+        qid = storage.getDataFromLocalStorage('qid');
+        if (qid && qid.includes('%7B%22')) {
+          storage.setDataInLocalStorage('qid', res.qid);
+        }
+      } else {
+        storage.setDataInLocalStorage('qid', res.qid);
+      }
+    }
 
     return bidResponses;
   },
@@ -125,12 +130,8 @@ export const spec = {
    */
   onBidWon: (bid) => {
     logInfo('onBidWon', bid);
-
     const bidString = JSON.stringify(bid);
-    let copyOfBid = JSON.parse(bidString);
-    delete copyOfBid.ad;
-    const shortBidString = JSON.stringify(bid);
-    const encodedBuf = window.btoa(shortBidString);
+    const encodedBuf = window.btoa(bidString);
 
     let params = {
       q: encodedBuf,
@@ -186,29 +187,10 @@ export const spec = {
       url: syncUrl
     }];
   }
-};
 
+};
 function buildRequest(validBidRequests, bidderRequest) {
   let bid = validBidRequests;
-  logInfo('buildRequest: ', bid);
-
-  let userId = null;
-  if (window.qid) {
-    userId = window.qid;
-  }
-
-  if (bid.userId && bid.userId.qid) {
-    userId = bid.userId.qid
-  }
-
-  if (!userId) {
-    // onetime User ID
-    const ramdomValues = Array.from(window.crypto.getRandomValues(new Uint32Array(4)));
-    userId = ramdomValues.map(val => val.toString(36)).join('').substring(0, 20);
-    logInfo('generated onetime User ID: ', userId);
-    window.qid = userId;
-  }
-
   let pageUrl = '';
   if (bidderRequest && bidderRequest.refererInfo) {
     pageUrl = bidderRequest.refererInfo.page || '';
@@ -217,10 +199,11 @@ function buildRequest(validBidRequests, bidderRequest) {
   return {
     v: '$prebid.version$',
     placementCode: bid.params.placementId,
-    auctionId: null,
+    // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
+    auctionId: bid.auctionId,
     type: bid.params.type,
     adUnitCode: bid.adUnitCode,
-    bidQid: userId,
+    bidQid: storage.getDataFromLocalStorage('qid') || null,
     bidId: bid.bidId,
     bidder: bid.bidder,
     bidPageUrl: pageUrl,

@@ -1,9 +1,8 @@
-import {getWindowSelf, isEmpty, parseSizesInput, isGptPubadsDefined} from '../src/utils.js';
+import {getWindowSelf, isEmpty, parseSizesInput, isGptPubadsDefined, isSlotMatchingAdUnitCode} from '../src/utils.js';
 import {getGlobal} from '../src/prebidGlobal.js';
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {getStorageManager} from '../src/storageManager.js';
 import {BANNER, VIDEO} from '../src/mediaTypes.js';
-import {isSlotMatchingAdUnitCode} from '../libraries/gptUtils/gptUtils.js';
 
 const BIDDER_CODE = 'eplanning';
 export const storage = getStorageManager({bidderCode: BIDDER_CODE});
@@ -268,21 +267,6 @@ function cleanName(name) {
   return name.replace(/_|\.|-|\//g, '').replace(/\)\(|\(|\)|:/g, '_').replace(/^_+|_+$/g, '');
 }
 
-function getFloorStr(bid) {
-  if (typeof bid.getFloor === 'function') {
-    let bidFloor = bid.getFloor({
-      currency: DOLLAR_CODE,
-      mediaType: '*',
-      size: '*'
-    });
-
-    if (bidFloor.floor) {
-      return '|' + encodeURIComponent(bidFloor.floor);
-    }
-  }
-  return '';
-}
-
 function getSpaces(bidRequests, ml) {
   let impType = bidRequests.reduce((previousBits, bid) => (bid.mediaTypes && bid.mediaTypes[VIDEO]) ? (bid.mediaTypes[VIDEO].context == 'outstream' ? (previousBits | 2) : (previousBits | 1)) : previousBits, 0);
   // Only one type of auction is supported at a time
@@ -302,7 +286,7 @@ function getSpaces(bidRequests, ml) {
       let sizeVast = firstSize ? firstSize.join('x') : DEFAULT_SIZE_VAST;
       name = 'video_' + sizeVast + '_' + i;
       es.map[name] = bid.bidId;
-      return name + ':' + sizeVast + ';1' + getFloorStr(bid);
+      return name + ':' + sizeVast + ';1';
     }
 
     if (ml) {
@@ -312,7 +296,7 @@ function getSpaces(bidRequests, ml) {
     }
 
     es.map[name] = bid.bidId;
-    return name + ':' + getSize(bid) + getFloorStr(bid);
+    return name + ':' + getSize(bid);
   }).join('+')).join('+');
   return es;
 }

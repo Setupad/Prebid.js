@@ -111,7 +111,7 @@
         pbjs.onEvent('videoTime', (e) => {
           // when the video reaches the midroll, request bids and update the offset.
           if (e.position >= midrollOffset) {
-            pbjs.requestBids();
+            pbjs.requestBids(adUnits);
             midrollOffset += 10;
           }
         });

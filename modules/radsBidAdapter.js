@@ -2,10 +2,6 @@ import {deepAccess} from '../src/utils.js';
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {BANNER, VIDEO} from '../src/mediaTypes.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- */
-
 const BIDDER_CODE = 'rads';
 const ENDPOINT_URL = 'https://rads.recognified.net/md.request.php';
 const ENDPOINT_URL_DEV = 'https://dcradn1.online-solution.biz/md.request.php';

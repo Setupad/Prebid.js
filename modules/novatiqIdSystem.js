@@ -11,20 +11,15 @@ import { submodule } from '../src/hook.js';
 import {getStorageManager} from '../src/storageManager.js';
 import {MODULE_TYPE_UID} from '../src/activities/modules.js';
 
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- */
-
 const MODULE_NAME = 'novatiq';
 
 /** @type {Submodule} */
 export const novatiqIdSubmodule = {
 
   /**
-   * used to link submodule with config
-   * @type {string}
-   */
+ * used to link submodule with config
+ * @type {string}
+ */
   name: MODULE_NAME,
   /**
    * used to specify vendor id
@@ -33,10 +28,10 @@ export const novatiqIdSubmodule = {
   gvlid: 1119,
 
   /**
-   * decode the stored id value for passing to bid requests
-   * @function
-   * @returns {novatiq: {snowflake: string}}
-   */
+ * decode the stored id value for passing to bid requests
+ * @function
+ * @returns {novatiq: {snowflake: string}}
+ */
   decode(novatiqId, config) {
     let responseObj = {
       novatiq: {
@@ -57,11 +52,11 @@ export const novatiqIdSubmodule = {
   },
 
   /**
-   * performs action to obtain id and return a value in the callback's response argument
-   * @function
-   * @param {SubmoduleConfig} config
-   * @returns {id: string}
-   */
+ * performs action to obtain id and return a value in the callback's response argument
+ * @function
+ * @param {SubmoduleConfig} config
+ * @returns {id: string}
+ */
   getId(config) {
     const configParams = config.params || {};
     const urlParams = this.getUrlParams(configParams);
@@ -264,18 +259,6 @@ export const novatiqIdSubmodule = {
       srcId = configParams.sourceid;
     }
     return srcId;
-  },
-  eids: {
-    'novatiq': {
-      getValue: function(data) {
-        if (data.snowflake.id === undefined) {
-          return data.snowflake;
-        }
-
-        return data.snowflake.id;
-      },
-      source: 'novatiq.com',
-    },
   }
 };
 submodule('userId', novatiqIdSubmodule);

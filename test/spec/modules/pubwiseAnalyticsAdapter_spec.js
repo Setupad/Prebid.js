@@ -1,7 +1,6 @@
 import {expect} from 'chai';
 import pubwiseAnalytics from 'modules/pubwiseAnalyticsAdapter.js';
 import {expectEvents} from '../../helpers/analytics.js';
-import {server} from '../../mocks/xhr.js';
 
 let events = require('src/events');
 let adapterManager = require('src/adapterManager').default;
@@ -10,6 +9,7 @@ let constants = require('src/constants.json');
 describe('PubWise Prebid Analytics', function () {
   let requests;
   let sandbox;
+  let xhr;
   let clock;
   let mock = {};
 
@@ -38,7 +38,9 @@ describe('PubWise Prebid Analytics', function () {
     clock = sandbox.useFakeTimers();
     sandbox.stub(events, 'getEvents').returns([]);
 
-    requests = server.requests;
+    xhr = sandbox.useFakeXMLHttpRequest();
+    requests = [];
+    xhr.onCreate = request => requests.push(request);
   });
 
   afterEach(function () {
@@ -48,6 +50,10 @@ describe('PubWise Prebid Analytics', function () {
   });
 
   describe('enableAnalytics', function () {
+    beforeEach(function () {
+      requests = [];
+    });
+
     it('should catch all events', function () {
       pubwiseAnalytics.enableAnalytics(mock.DEFAULT_PW_CONFIG);
 

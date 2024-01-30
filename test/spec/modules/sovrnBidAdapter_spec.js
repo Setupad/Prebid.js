@@ -64,29 +64,6 @@ describe('sovrnBidAdapter', function() {
 
       expect(spec.isBidRequestValid(bidRequest)).to.equal(false)
     })
-
-    it('should return true when minduration is not passed', function() {
-      const width = 300
-      const height = 250
-      const mimes = ['video/mp4', 'application/javascript']
-      const protocols = [2, 5]
-      const maxduration = 60
-      const startdelay = 0
-      const videoBidRequest = {
-        ...baseBidRequest,
-        mediaTypes: {
-          video: {
-            mimes,
-            protocols,
-            playerSize: [[width, height], [360, 240]],
-            maxduration,
-            startdelay
-          }
-        }
-      }
-
-      expect(spec.isBidRequestValid(videoBidRequest)).to.equal(true)
-    })
   })
 
   describe('buildRequests', function () {
@@ -206,40 +183,6 @@ describe('sovrnBidAdapter', function() {
         expect(payload.tmax).to.equal(3000)
       })
 
-      it('forwards auction level tid', function() {
-        const bidderRequest = {
-          ...baseBidderRequest,
-          ortb2: {
-            source: {
-              tid: '1d1a030790a475'
-            }
-          },
-          bids: [baseBidRequest]
-        }
-
-        const payload = JSON.parse(spec.buildRequests([baseBidRequest], bidderRequest).data)
-        expect(payload.source?.tid).to.equal('1d1a030790a475')
-      })
-
-      it('forwards impression level tid', function() {
-        const bidRequest = {
-          ...baseBidRequest,
-          ortb2Imp: {
-            ext: {
-              tid: '1a2c032473f4983'
-            }
-          },
-        }
-
-        const bidderRequest = {
-          ...baseBidderRequest,
-          bids: [bidRequest]
-        }
-
-        const payload = JSON.parse(spec.buildRequests([bidRequest], bidderRequest).data)
-        expect(payload.imp[0]?.ext?.tid).to.equal('1a2c032473f4983')
-      })
-
       it('includes the ad unit code in the request', function() {
         const impression = payload.imp[0]
         expect(impression.adunitcode).to.equal('adunit-code')
@@ -316,41 +259,6 @@ describe('sovrnBidAdapter', function() {
       const data = JSON.parse(spec.buildRequests([baseBidRequest], bidderRequest).data)
 
       expect(data.regs.ext['us_privacy']).to.equal(bidderRequest.uspConsent)
-    })
-
-    it('should not set coppa when coppa is undefined', function () {
-      const bidderRequest = {
-        ...baseBidderRequest,
-        bidderCode: 'sovrn',
-        auctionId: '1d1a030790a475',
-        bidderRequestId: '22edbae2733bf6',
-        timeout: 3000,
-        bids: [baseBidRequest],
-        gdprConsent: {
-          consentString: 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==',
-          gdprApplies: true
-        },
-      }
-      const {regs} = JSON.parse(spec.buildRequests([baseBidRequest], bidderRequest).data)
-      expect(regs.coppa).to.be.undefined
-    })
-
-    it('should set coppa to 1 when coppa is provided with value true', function () {
-      const bidderRequest = {
-        ...baseBidderRequest,
-        ortb2: {
-          regs: {
-            coppa: true
-          }
-        },
-        bidderCode: 'sovrn',
-        auctionId: '1d1a030790a475',
-        bidderRequestId: '22edbae2733bf6',
-        timeout: 3000,
-        bids: [baseBidRequest]
-      }
-      const {regs} = JSON.parse(spec.buildRequests([baseBidRequest], bidderRequest).data)
-      expect(regs.coppa).to.equal(1)
     })
 
     it('should send gpp info in OpenRTB 2.6 location when gppConsent defined', function () {
@@ -909,7 +817,7 @@ describe('sovrnBidAdapter', function() {
         url: `https://ap.lijit.com/beacon?gdpr_consent=${gdprConsent.consentString}&informer=13487408`,
       }
 
-      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, gdprConsent, '', null)
+      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, gdprConsent, '')
 
       expect(returnStatement[0]).to.deep.equal(expectedReturnStatement)
     })
@@ -921,22 +829,7 @@ describe('sovrnBidAdapter', function() {
         url: `https://ap.lijit.com/beacon?us_privacy=${uspString}&informer=13487408`,
       }
 
-      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, null, uspString, null)
-
-      expect(returnStatement[0]).to.deep.equal(expectedReturnStatement)
-    })
-
-    it('should include gpp consent string if present', function() {
-      const gppConsent = {
-        applicableSections: [1, 2],
-        gppString: 'DBACNYA~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN'
-      }
-      const expectedReturnStatement = {
-        type: 'iframe',
-        url: `https://ap.lijit.com/beacon?gpp=${gppConsent.gppString}&gpp_sid=${gppConsent.applicableSections}&informer=13487408`,
-      }
-
-      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, null, '', gppConsent)
+      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, null, uspString)
 
       expect(returnStatement[0]).to.deep.equal(expectedReturnStatement)
     })
@@ -947,17 +840,12 @@ describe('sovrnBidAdapter', function() {
         consentString: 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A=='
       }
       const uspString = '1NYN'
-      const gppConsent = {
-        applicableSections: [1, 2],
-        gppString: 'DBACNYA~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN'
-      }
-
       const expectedReturnStatement = {
         type: 'iframe',
-        url: `https://ap.lijit.com/beacon?gdpr_consent=${gdprConsent.consentString}&us_privacy=${uspString}&gpp=${gppConsent.gppString}&gpp_sid=${gppConsent.applicableSections}&informer=13487408`,
+        url: `https://ap.lijit.com/beacon?gdpr_consent=${gdprConsent.consentString}&us_privacy=${uspString}&informer=13487408`,
       }
 
-      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, gdprConsent, uspString, gppConsent)
+      const returnStatement = spec.getUserSyncs(syncOptions, serverResponse, gdprConsent, uspString)
 
       expect(returnStatement[0]).to.deep.equal(expectedReturnStatement)
     })

@@ -1,15 +1,11 @@
 import { isFn, isPlainObject } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
 import { getStorageManager } from '../src/storageManager.js';
 import { BANNER, NATIVE } from '../src/mediaTypes.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getGlobal } from '../src/prebidGlobal.js';
+import {getGlobal} from '../src/prebidGlobal.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
-const storageManager = getStorageManager({ bidderCode: 'orbidder' });
+const storageManager = getStorageManager({bidderCode: 'orbidder'});
 
 /**
  * Determines whether or not the given bid response is valid.
@@ -73,7 +69,7 @@ export const spec = {
     return !!(bid.sizes && bid.bidId && bid.params &&
       (bid.params.accountId && (typeof bid.params.accountId === 'string')) &&
       (bid.params.placementId && (typeof bid.params.placementId === 'string')) &&
-      ((typeof bid.params.keyValues === 'undefined') || (typeof bid.params.keyValues === 'object')));
+      ((typeof bid.params.profile === 'undefined') || (typeof bid.params.profile === 'object')));
   },
 
   /**
@@ -103,7 +99,15 @@ export const spec = {
         data: {
           v: getGlobal().version,
           pageUrl: referer,
-          ...bidRequest // get all data provided by bid request
+          bidId: bidRequest.bidId,
+          auctionId: bidRequest.auctionId,
+          // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
+          transactionId: bidRequest.ortb2Imp?.ext?.tid,
+          adUnitCode: bidRequest.adUnitCode,
+          bidRequestCount: bidRequest.bidRequestCount,
+          params: bidRequest.params,
+          sizes: bidRequest.sizes,
+          mediaTypes: bidRequest.mediaTypes
         }
       };
 

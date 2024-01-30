@@ -21,10 +21,6 @@ import {ajaxBuilder} from '../src/ajax.js';
 import {generateUUID, isGptPubadsDefined, logError, timestamp} from '../src/utils.js';
 import {find} from '../src/polyfill.js';
 
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
-
 /** @type {Object} */
 const MessageType = {
   IMPRESSION_REQUEST: 'rsdk:impression:req',

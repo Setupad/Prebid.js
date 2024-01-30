@@ -76,10 +76,7 @@ describe('MGIDXBidAdapter', function () {
 
   const bidderRequest = {
     uspConsent: '1---',
-    gdprConsent: {
-      consentString: 'COvFyGBOvFyGBAbAAAENAPCAAOAAAAAAAAAAAEEUACCKAAA.IFoEUQQgAIQwgIwQABAEAAAAOIAACAIAAAAQAIAgEAACEAAAAAgAQBAAAAAAAGBAAgAAAAAAAFAAECAAAgAAQARAEQAAAAAJAAIAAgAAAYQEAAAQmAgBC3ZAYzUw',
-      vendorData: {}
-    },
+    gdprConsent: 'COvFyGBOvFyGBAbAAAENAPCAAOAAAAAAAAAAAEEUACCKAAA.IFoEUQQgAIQwgIwQABAEAAAAOIAACAIAAAAQAIAgEAACEAAAAAgAQBAAAAAAAGBAAgAAAAAAAFAAECAAAgAAQARAEQAAAAAJAAIAAgAAAYQEAAAQmAgBC3ZAYzUw',
     refererInfo: {
       referer: 'https://test.com'
     }
@@ -134,7 +131,7 @@ describe('MGIDXBidAdapter', function () {
       expect(data.host).to.be.a('string');
       expect(data.page).to.be.a('string');
       expect(data.coppa).to.be.a('number');
-      expect(data.gdpr).to.be.a('object');
+      expect(data.gdpr).to.be.a('string');
       expect(data.ccpa).to.be.a('string');
       expect(data.tmax).to.be.a('number');
       expect(data.placements).to.have.lengthOf(3);
@@ -175,10 +172,8 @@ describe('MGIDXBidAdapter', function () {
       serverRequest = spec.buildRequests(bids, bidderRequest);
       let data = serverRequest.data;
       expect(data.gdpr).to.exist;
-      expect(data.gdpr).to.be.a('object');
-      expect(data.gdpr).to.have.property('consentString');
-      expect(data.gdpr).to.not.have.property('vendorData');
-      expect(data.gdpr.consentString).to.equal(bidderRequest.gdprConsent.consentString);
+      expect(data.gdpr).to.be.a('string');
+      expect(data.gdpr).to.equal(bidderRequest.gdprConsent);
       expect(data.ccpa).to.not.exist;
       delete bidderRequest.gdprConsent;
     });

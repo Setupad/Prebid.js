@@ -56,12 +56,6 @@ export const tapadIdSubmodule = {
         );
       }
     }
-  },
-  eids: {
-    'tapadId': {
-      source: 'tapad.com',
-      atype: 1
-    },
   }
 }
 submodule('userId', tapadIdSubmodule);

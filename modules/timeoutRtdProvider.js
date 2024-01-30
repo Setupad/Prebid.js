@@ -4,10 +4,6 @@ import * as ajax from '../src/ajax.js';
 import { logInfo, deepAccess, logError } from '../src/utils.js';
 import { getGlobal } from '../src/prebidGlobal.js';
 
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
-
 const SUBMODULE_NAME = 'timeout';
 
 // this allows the stubbing of functions during testing
@@ -71,7 +67,7 @@ function getConnectionSpeed() {
  * Calculate the time to be added to the timeout
  * @param {Array} adUnits
  * @param {Object} rules
- * @return {number}
+ * @return {int}
  */
 function calculateTimeoutModifier(adUnits, rules) {
   logInfo('Timeout rules', rules);

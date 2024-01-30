@@ -5,10 +5,6 @@ import { ajax } from '../src/ajax.js';
 
 import { config as sourceConfig } from '../src/config.js';
 
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
-
 const GVLID = 855;
 
 function init(config, userConsent) {

@@ -2,14 +2,11 @@ import { expect } from 'chai'
 import { spec } from 'modules/holidBidAdapter.js'
 
 describe('holidBidAdapterTests', () => {
-  const bidderRequest = {
-    bidderRequestId: 'test-id'
-  }
-
   const bidRequestData = {
     bidder: 'holid',
     adUnitCode: 'test-div',
     bidId: 'bid-id',
+    auctionId: 'test-id',
     params: { adUnitID: '12345' },
     mediaTypes: { banner: {} },
     sizes: [[300, 250]],
@@ -51,26 +48,18 @@ describe('holidBidAdapterTests', () => {
 
   describe('buildRequests', () => {
     const bid = JSON.parse(JSON.stringify(bidRequestData))
-    const request = spec.buildRequests([bid], bidderRequest)
+    const request = spec.buildRequests([bid], bid)
     const payload = JSON.parse(request[0].data)
 
-    it('should include id in request', () => {
-      expect(payload.id).to.equal('test-id')
-    })
-
     it('should include ext in imp', () => {
+      expect(payload.imp[0].ext).to.exist
       expect(payload.imp[0].ext).to.deep.equal({
         prebid: { storedrequest: { id: '12345' } },
       })
     })
 
-    it('should include ext in request', () => {
-      expect(payload.ext).to.deep.equal({
-        prebid: { storedrequest: { id: '12345' } },
-      })
-    })
-
     it('should include banner format in imp', () => {
+      expect(payload.imp[0].banner).to.exist
       expect(payload.imp[0].banner).to.deep.equal({
         format: [{ w: 300, h: 250 }],
       })
@@ -158,10 +147,6 @@ describe('holidBidAdapterTests', () => {
       const uspConsent = 'mkjvbiniwot4827obfoy8sdg8203gb'
       const expectedUserSyncs = [
         {
-          type: 'image',
-          url: 'https://track.adform.net/Serving/TrackPoint/?pm=2992097&lid=132720821',
-        },
-        {
           type: 'iframe',
           url: 'https://null.holid.io/sync.html?bidders=%5B%22test%20seat%201%22%2C%22test%20seat%202%22%5D&gdpr=1&gdpr_consent=dkj49Sjmfjuj34as:12jaf90123hufabidfy9u23brfpoig&usp_consent=mkjvbiniwot4827obfoy8sdg8203gb&type=iframe',
         },
@@ -177,7 +162,7 @@ describe('holidBidAdapterTests', () => {
       expect(userSyncs).to.deep.equal(expectedUserSyncs)
     })
 
-    it('should return base user syncs when responsetimemillis is not defined', () => {
+    it('should return empty user syncs when responsetimemillis is not defined', () => {
       const optionsType = {
         iframeEnabled: true,
         pixelEnabled: true,
@@ -194,12 +179,7 @@ describe('holidBidAdapterTests', () => {
         consentString: 'dkj49Sjmfjuj34as:12jaf90123hufabidfy9u23brfpoig',
       }
       const uspConsent = 'mkjvbiniwot4827obfoy8sdg8203gb'
-      const expectedUserSyncs = [
-        {
-          type: 'image',
-          url: 'https://track.adform.net/Serving/TrackPoint/?pm=2992097&lid=132720821',
-        }
-      ]
+      const expectedUserSyncs = []
 
       const userSyncs = spec.getUserSyncs(
         optionsType,

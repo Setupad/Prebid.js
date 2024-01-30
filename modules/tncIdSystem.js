@@ -57,12 +57,6 @@ export const tncidSubModule = {
     return {
       callback: function (cb) { return tncCallback(cb); }
     }
-  },
-  eids: {
-    'tncid': {
-      source: 'thenewco.it',
-      atype: 3
-    },
   }
 }
 

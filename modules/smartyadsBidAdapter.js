@@ -3,16 +3,9 @@ import {registerBidder} from '../src/adapters/bidderFactory.js';
 import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { config } from '../src/config.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { ajax } from '../src/ajax.js';
 
 const BIDDER_CODE = 'smartyads';
-const GVLID = 534;
-const adUrls = {
-  US_EAST: 'https://n1.smartyads.com/?c=o&m=prebid&secret_key=prebid_js',
-  EU: 'https://n2.smartyads.com/?c=o&m=prebid&secret_key=prebid_js',
-  SGP: 'https://n6.smartyads.com/?c=o&m=prebid&secret_key=prebid_js'
-}
-
+const AD_URL = 'https://n1.smartyads.com/?c=o&m=prebid&secret_key=prebid_js';
 const URL_SYNC = 'https://as.ck-ie.com/prebidjs?p=7c47322e527cf8bdeb7facc1bb03387a';
 
 function isBidResponseValid(bid) {
@@ -32,28 +25,8 @@ function isBidResponseValid(bid) {
   }
 }
 
-function getAdUrlByRegion(bid) {
-  let adUrl;
-
-  if (bid.params.region && adUrls[bid.params.region]) {
-    adUrl = adUrls[bid.params.region];
-  } else {
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const region = timezone.split('/')[0];
-      if (region === 'Europe') adUrl = adUrls['EU'];
-      else adUrl = adUrls['US_EAST'];
-    } catch (err) {
-      adUrl = adUrls['US_EAST'];
-    }
-  }
-
-  return adUrl;
-}
-
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
 
   isBidRequestValid: (bid) => {
@@ -93,17 +66,11 @@ export const spec = {
       if (bidderRequest.gdprConsent) {
         request.gdpr = bidderRequest.gdprConsent
       }
-      if (bidderRequest.gppConsent) {
-        request.gpp = bidderRequest.gppConsent;
-      }
     }
     const len = validBidRequests.length;
 
-    let adUrl;
-
     for (let i = 0; i < len; i++) {
       let bid = validBidRequests[i];
-      if (i === 0) adUrl = getAdUrlByRegion(bid);
       let traff = bid.params.traffic || BANNER
       placements.push({
         placementId: bid.params.sourceid,
@@ -116,12 +83,11 @@ export const spec = {
         placements.schain = bid.schain;
       }
     }
-
     return {
       method: 'POST',
-      url: adUrl,
+      url: AD_URL,
       data: request
-    }
+    };
   },
 
   interpretResponse: (serverResponse) => {
@@ -136,46 +102,24 @@ export const spec = {
     return response;
   },
 
-  getUserSyncs: (syncOptions, serverResponses = [], gdprConsent = {}, uspConsent = '', gppConsent = '') => {
+  getUserSyncs: (syncOptions, serverResponses = [], gdprConsent = {}, uspConsent = '') => {
     let syncs = [];
     let { gdprApplies, consentString = '' } = gdprConsent;
 
     if (syncOptions.iframeEnabled) {
       syncs.push({
         type: 'iframe',
-        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=iframe&us_privacy=${uspConsent}&gpp=${gppConsent}`
+        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=iframe&us_privacy=${uspConsent}`
       });
     } else {
       syncs.push({
         type: 'image',
-        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=image&us_privacy=${uspConsent}&gpp=${gppConsent}`
+        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=image&us_privacy=${uspConsent}`
       });
     }
 
     return syncs
-  },
-
-  onBidWon: function(bid) {
-    if (bid.winUrl) {
-      ajax(bid.winUrl, () => {}, JSON.stringify(bid));
-    } else {
-      if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
-        ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&winTest=1', () => {}, JSON.stringify(bid));
-      }
-    }
-  },
-
-  onTimeout: function(bid) {
-    if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
-      ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&bidTimeout=1', () => {}, JSON.stringify(bid));
-    }
-  },
-
-  onBidderError: function(bid) {
-    if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
-      ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&bidderError=1', () => {}, JSON.stringify(bid));
-    }
-  },
+  }
 
 };
 

@@ -165,14 +165,6 @@ describe('uaDataToSUA', () => {
 });
 
 describe('lowEntropySUAAccessor', () => {
-  // Set up a mock data with readonly property
-  class MockUserAgentData {}
-  Object.defineProperty(MockUserAgentData.prototype, 'mobile', {
-    value: false,
-    writable: false,
-    enumerable: true
-  });
-
   function getSUA(uaData) {
     return lowEntropySUAAccessor(uaData)();
   }
@@ -188,10 +180,6 @@ describe('lowEntropySUAAccessor', () => {
 
   it('should return null if uaData is empty', () => {
     expect(getSUA({})).to.eql(null);
-  })
-
-  it('should return mobile and source', () => {
-    expect(getSUA(new MockUserAgentData())).to.eql({mobile: 0, source: 1})
   })
 });
 

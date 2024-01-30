@@ -2,7 +2,6 @@ import { expect } from 'chai';
 import { spec } from '../../../modules/datablocksBidAdapter.js';
 import { BotClientTests } from '../../../modules/datablocksBidAdapter.js';
 import { getStorageManager } from '../../../src/storageManager.js';
-import {deepClone} from '../../../src/utils.js';
 
 const bid = {
   bidId: '2dd581a2b6281d',
@@ -410,7 +409,7 @@ describe('DatablocksAdapter', function() {
       expect(spec.isBidRequestValid(bid)).to.be.true;
     });
     it('Should return false when host/source_id is not set', function() {
-      let moddedBid = deepClone(bid);
+      let moddedBid = Object.assign({}, bid);
       delete moddedBid.params.source_id;
       expect(spec.isBidRequestValid(moddedBid)).to.be.false;
     });
@@ -443,12 +442,9 @@ describe('DatablocksAdapter', function() {
   });
 
   describe('buildRequests', function() {
-    let request;
-    before(() => {
-      request = spec.buildRequests([bid, bid2, nativeBid], bidderRequest);
-      expect(request).to.exist;
-    })
+    let request = spec.buildRequests([bid, bid2, nativeBid], bidderRequest);
 
+    expect(request).to.exist;
     it('Returns POST method', function() {
       expect(request.method).to.exist;
       expect(request.method).to.equal('POST');

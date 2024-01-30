@@ -1,11 +1,7 @@
 import { submodule } from '../src/hook.js';
-import { logMessage } from '../src/utils.js';
-import { getCoreStorageManager } from '../src/storageManager.js';
+import {generateUUID, logMessage} from '../src/utils.js';
 
 const MODULE_NAME = 'freepassId';
-
-export const FREEPASS_COOKIE_KEY = '_f_UF8cCRlr';
-export const storage = getCoreStorageManager(MODULE_NAME);
 
 export const freepassIdSubmodule = {
   name: MODULE_NAME,
@@ -19,12 +15,7 @@ export const freepassIdSubmodule = {
     logMessage('Getting FreePass ID using config: ' + JSON.stringify(config));
 
     const freepassData = config.params !== undefined ? (config.params.freepassData || {}) : {}
-    const idObject = {};
-
-    const userId = storage.getCookie(FREEPASS_COOKIE_KEY);
-    if (userId !== null) {
-      idObject.userId = userId;
-    }
+    let idObject = {userId: generateUUID()};
 
     if (freepassData.commonId !== undefined) {
       idObject.commonId = config.params.freepassData.commonId;
@@ -38,8 +29,8 @@ export const freepassIdSubmodule = {
   },
 
   extendId: function (config, consent, cachedIdObject) {
-    const freepassData = config.params.freepassData;
-    const hasFreepassData = freepassData !== undefined;
+    let freepassData = config.params.freepassData;
+    let hasFreepassData = freepassData !== undefined;
     if (!hasFreepassData) {
       logMessage('No Freepass Data. CachedIdObject will not be extended: ' + JSON.stringify(cachedIdObject));
       return {
@@ -47,7 +38,12 @@ export const freepassIdSubmodule = {
       };
     }
 
-    const currentCookieId = storage.getCookie(FREEPASS_COOKIE_KEY);
+    if (freepassData.commonId === cachedIdObject.commonId && freepassData.userIp === cachedIdObject.userIp) {
+      logMessage('FreePass ID is already up-to-date: ' + JSON.stringify(cachedIdObject));
+      return {
+        id: cachedIdObject
+      };
+    }
 
     logMessage('Extending FreePass ID object: ' + JSON.stringify(cachedIdObject));
     logMessage('Extending FreePass ID using config: ' + JSON.stringify(config));
@@ -56,8 +52,8 @@ export const freepassIdSubmodule = {
       id: {
         commonId: freepassData.commonId,
         userIp: freepassData.userIp,
-        userId: currentCookieId
-      }
+        userId: cachedIdObject.userId,
+      },
     };
   }
 };

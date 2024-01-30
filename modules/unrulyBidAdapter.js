@@ -56,12 +56,6 @@ const RemoveDuplicateSizes = (validBid) => {
   }
 };
 
-const ConfigureProtectedAudience = (validBid, protectedAudienceEnabled) => {
-  if (!protectedAudienceEnabled && validBid.ortb2Imp && validBid.ortb2Imp.ext) {
-    delete validBid.ortb2Imp.ext.ae;
-  }
-}
-
 const getRequests = (conf, validBidRequests, bidderRequest) => {
   const {bids, bidderRequestId, bidderCode, ...bidderRequestData} = bidderRequest;
   const invalidBidsCount = bidderRequest.bids.length - validBidRequests.length;
@@ -71,7 +65,6 @@ const getRequests = (conf, validBidRequests, bidderRequest) => {
     const currSiteId = validBid.params.siteId;
     addBidFloorInfo(validBid);
     RemoveDuplicateSizes(validBid);
-    ConfigureProtectedAudience(validBid, conf.protectedAudienceEnabled);
     requestBySiteId[currSiteId] = requestBySiteId[currSiteId] || [];
     requestBySiteId[currSiteId].push(validBid);
   });
@@ -80,14 +73,7 @@ const getRequests = (conf, validBidRequests, bidderRequest) => {
 
   Object.keys(requestBySiteId).forEach((key) => {
     let data = {
-      bidderRequest: Object.assign({},
-        {
-          bids: requestBySiteId[key],
-          invalidBidsCount,
-          prebidVersion: '$prebid.version$',
-          ...bidderRequestData
-        }
-      )
+      bidderRequest: Object.assign({}, {bids: requestBySiteId[key], invalidBidsCount, ...bidderRequestData})
     };
 
     request.push(Object.assign({}, {data, ...conf}));
@@ -220,49 +206,21 @@ export const adapter = {
       endPoint = deepAccess(validBidRequests[0], 'params.endpoint') || endPoint;
     }
 
-    return getRequests({
-      'url': endPoint,
-      'method': 'POST',
-      'options': {
-        'contentType': 'application/json'
-      },
-      'protectedAudienceEnabled': bidderRequest.fledgeEnabled
-    }, validBidRequests, bidderRequest);
+    const url = endPoint;
+    const method = 'POST';
+    const options = {contentType: 'application/json'};
+    return getRequests({url, method, options}, validBidRequests, bidderRequest);
   },
 
-  interpretResponse: function (serverResponse) {
-    if (!(serverResponse && serverResponse.body && (serverResponse.body.auctionConfigs || serverResponse.body.bids))) {
-      return [];
-    }
-
+  interpretResponse: function (serverResponse = {}) {
     const serverResponseBody = serverResponse.body;
-    let bids = [];
-    let fledgeAuctionConfigs = null;
-    if (serverResponseBody.bids.length) {
-      bids = handleBidResponseByMediaType(serverResponseBody.bids);
-    }
 
-    if (serverResponseBody.auctionConfigs) {
-      let auctionConfigs = serverResponseBody.auctionConfigs;
-      let bidIdList = Object.keys(auctionConfigs);
-      if (bidIdList.length) {
-        bidIdList.forEach((bidId) => {
-          fledgeAuctionConfigs = [{
-            'bidId': bidId,
-            'config': auctionConfigs[bidId]
-          }];
-        })
-      }
-    }
+    const noBidsResponse = [];
+    const isInvalidResponse = !serverResponseBody || !serverResponseBody.bids;
 
-    if (!fledgeAuctionConfigs) {
-      return bids;
-    }
-
-    return {
-      bids,
-      fledgeAuctionConfigs
-    };
+    return isInvalidResponse
+      ? noBidsResponse
+      : handleBidResponseByMediaType(serverResponseBody.bids);
   }
 };
 

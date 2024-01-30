@@ -2,13 +2,14 @@ import { registerBidder } from '../src/adapters/bidderFactory.js';
 import {
   logInfo,
   logError,
+  getBidIdParameter,
   _each,
   getValue,
   isFn,
   isPlainObject,
   isArray,
   isStr,
-  isNumber, getBidIdParameter,
+  isNumber,
 } from '../src/utils.js';
 import { BANNER } from '../src/mediaTypes.js';
 

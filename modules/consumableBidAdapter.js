@@ -3,12 +3,6 @@ import {config} from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
-
 const BIDDER_CODE = 'consumable';
 
 const BASE_URI = 'https://e.serverbid.com/api/v2';
@@ -69,11 +63,6 @@ export const spec = {
         consent: bidderRequest.gdprConsent.consentString,
         applies: (typeof bidderRequest.gdprConsent.gdprApplies === 'boolean') ? bidderRequest.gdprConsent.gdprApplies : true
       };
-    }
-
-    if (bidderRequest && bidderRequest.gppConsent && bidderRequest.gppConsent.gppString) {
-      data.gpp = bidderRequest.gppConsent.gppString;
-      data.gpp_sid = bidderRequest.gppConsent.applicableSections;
     }
 
     if (bidderRequest && bidderRequest.uspConsent) {
@@ -191,26 +180,20 @@ export const spec = {
     return bidResponses;
   },
 
-  getUserSyncs: function(syncOptions, serverResponses, gdprConsent, uspConsent, gppConsent) {
+  getUserSyncs: function(syncOptions, serverResponses, gdprConsent, uspConsent) {
     let syncUrl = 'https://sync.serverbid.com/ss/' + siteId + '.html';
 
     if (syncOptions.iframeEnabled) {
       if (gdprConsent && gdprConsent.consentString) {
         if (typeof gdprConsent.gdprApplies === 'boolean') {
-          syncUrl = appendUrlParam(syncUrl, `gdpr=${Number(gdprConsent.gdprApplies)}&gdpr_consent=${encodeURIComponent(gdprConsent.consentString) || ''}`);
+          syncUrl = appendUrlParam(syncUrl, `gdpr=${Number(gdprConsent.gdprApplies)}&gdpr_consent=${gdprConsent.consentString}`);
         } else {
-          syncUrl = appendUrlParam(syncUrl, `gdpr=0&gdpr_consent=${encodeURIComponent(gdprConsent.consentString) || ''}`);
-        }
-      }
-      if (gppConsent && gppConsent.gppString) {
-        syncUrl = appendUrlParam(syncUrl, `gpp=${encodeURIComponent(gppConsent.gppString)}`);
-        if (gppConsent.applicableSections && gppConsent.applicableSections.length > 0) {
-          syncUrl = appendUrlParam(syncUrl, `gpp_sid=${encodeURIComponent(gppConsent.applicableSections.join(','))}`);
+          syncUrl = appendUrlParam(syncUrl, `gdpr=0&gdpr_consent=${gdprConsent.consentString}`);
         }
       }
 
-      if (uspConsent) {
-        syncUrl = appendUrlParam(syncUrl, `us_privacy=${encodeURIComponent(uspConsent)}`);
+      if (uspConsent && uspConsent.consentString) {
+        syncUrl = appendUrlParam(syncUrl, `us_privacy=${uspConsent.consentString}`);
       }
 
       if (!serverResponses || serverResponses.length === 0 || !serverResponses[0].body.bdr || serverResponses[0].body.bdr !== 'cx') {

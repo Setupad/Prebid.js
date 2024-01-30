@@ -1,10 +1,4 @@
-import {
-  deepAccess,
-  deepSetValue, getBidIdParameter,
-  isStr,
-  logMessage,
-  triggerPixel,
-} from '../src/utils.js';
+import {deepAccess, getBidIdParameter, isStr, logMessage, triggerPixel, } from '../src/utils.js';
 import * as events from '../src/events.js';
 import CONSTANTS from '../src/constants.json';
 import {BANNER} from '../src/mediaTypes.js';
@@ -16,7 +10,6 @@ const GVLID = 1177
 const ENDPOINT = 'https://helloworld.holid.io/openrtb2/auction'
 const COOKIE_SYNC_ENDPOINT = 'https://null.holid.io/sync.html'
 const TIME_TO_LIVE = 300
-const TMAX = 500
 let wurlMap = {}
 
 events.on(CONSTANTS.EVENTS.BID_WON, bidWonHandler)
@@ -30,19 +23,12 @@ export const spec = {
     return !!bid.params.adUnitID
   },
 
-  buildRequests: function (validBidRequests, bidderRequest) {
+  buildRequests: function (validBidRequests, _bidderRequest) {
     return validBidRequests.map((bid) => {
       const requestData = {
         ...bid.ortb2,
-        source: {schain: bid.schain},
-        id: bidderRequest.bidderRequestId,
+        id: _bidderRequest.bidderRequestId,
         imp: [getImp(bid)],
-        tmax: TMAX,
-        ...buildStoredRequest(bid)
-      }
-
-      if (bid.userIdAsEids) {
-        deepSetValue(requestData, 'user.ext.eids', bid.userIdAsEids)
       }
 
       return {
@@ -64,6 +50,8 @@ export const spec = {
     serverResponse.body.seatbid.map((response) => {
       response.bid.map((bid) => {
         const requestId = bidRequest.bidId
+        // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
+        const auctionId = bidRequest.auctionId
         const wurl = deepAccess(bid, 'ext.prebid.events.win')
         const bidResponse = {
           requestId,
@@ -77,7 +65,7 @@ export const spec = {
           ttl: TIME_TO_LIVE,
         }
 
-        addWurl(requestId, wurl)
+        addWurl({ auctionId, requestId, wurl })
 
         bidResponses.push(bidResponse)
       })
@@ -87,15 +75,11 @@ export const spec = {
   },
 
   getUserSyncs(optionsType, serverResponse, gdprConsent, uspConsent) {
-    const syncs = [{
-      type: 'image',
-      url: 'https://track.adform.net/Serving/TrackPoint/?pm=2992097&lid=132720821'
-    }]
-
     if (!serverResponse || serverResponse.length === 0) {
-      return syncs
+      return []
     }
 
+    const syncs = []
     const bidders = getBidders(serverResponse)
 
     if (optionsType.iframeEnabled && bidders) {
@@ -116,14 +100,24 @@ export const spec = {
         type: 'iframe',
         url: COOKIE_SYNC_ENDPOINT + strQueryParams + '&type=iframe',
       })
+
+      return syncs
     }
 
-    return syncs
+    return []
   },
 }
 
 function getImp(bid) {
-  const imp = buildStoredRequest(bid)
+  const imp = {
+    ext: {
+      prebid: {
+        storedrequest: {
+          id: getBidIdParameter('adUnitID', bid.params),
+        },
+      },
+    },
+  }
   const sizes =
     bid.sizes && !Array.isArray(bid.sizes[0]) ? [bid.sizes] : bid.sizes
 
@@ -138,18 +132,6 @@ function getImp(bid) {
   return imp
 }
 
-function buildStoredRequest(bid) {
-  return {
-    ext: {
-      prebid: {
-        storedrequest: {
-          id: getBidIdParameter('adUnitID', bid.params),
-        },
-      },
-    },
-  }
-}
-
 function getBidders(serverResponse) {
   const bidders = serverResponse
     .map((res) => Object.keys(res.body.ext.responsetimemillis || []))
@@ -160,28 +142,28 @@ function getBidders(serverResponse) {
   }
 }
 
-function addWurl(requestId, wurl) {
-  if (isStr(requestId)) {
-    wurlMap[requestId] = wurl
+function addWurl(auctionId, adId, wurl) {
+  if ([auctionId, adId].every(isStr)) {
+    wurlMap[`${auctionId}${adId}`] = wurl
   }
 }
 
-function removeWurl(requestId) {
-  delete wurlMap[requestId]
+function removeWurl(auctionId, adId) {
+  delete wurlMap[`${auctionId}${adId}`]
 }
 
-function getWurl(requestId) {
-  if (isStr(requestId)) {
-    return wurlMap[requestId]
+function getWurl(auctionId, adId) {
+  if ([auctionId, adId].every(isStr)) {
+    return wurlMap[`${auctionId}${adId}`]
   }
 }
 
 function bidWonHandler(bid) {
-  const wurl = getWurl(bid.requestId)
+  const wurl = getWurl(bid.auctionId, bid.adId)
   if (wurl) {
     logMessage(`Invoking image pixel for wurl on BID_WIN: "${wurl}"`)
     triggerPixel(wurl)
-    removeWurl(bid.requestId)
+    removeWurl(bid.auctionId, bid.adId)
   }
 }
 

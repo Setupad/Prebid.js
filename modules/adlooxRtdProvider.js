@@ -25,6 +25,7 @@ import {
   deepAccess,
   deepClone,
   deepSetValue,
+  getGptSlotInfoForAdUnitCode,
   isArray,
   isBoolean,
   isInteger,
@@ -36,7 +37,6 @@ import {
   parseUrl,
   safeJSONParse
 } from '../src/utils.js';
-import {getGptSlotInfoForAdUnitCode} from '../libraries/gptUtils/gptUtils.js';
 
 const MODULE_NAME = 'adloox';
 const MODULE = `${MODULE_NAME}RtdProvider`;

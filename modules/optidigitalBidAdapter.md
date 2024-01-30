@@ -37,13 +37,10 @@ Bidder Adapter for Prebid.js.
 
 ```
 pbjs.setConfig({
-  userSync: {
-    filterSettings: {
-      iframe: {
-        bidders: '*', // '*' represents all bidders
-        filter: 'include'
-      }
-    }
-  }
+  userSync: {
+    iframeEnabled: true,
+    syncEnabled: true,
+    syncDelay: 3000
+  }
 });
 ```

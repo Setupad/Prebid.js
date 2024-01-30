@@ -8,10 +8,10 @@ Maintainer: dev@adagio.io
 
 Analytics adapter for Adagio
 
-# Settings
+# Test Parameters
 
-```js
-  pbjs.enableAnalytics({
-    provider: 'adagio',
-  });
+```
+{
+  provider: 'adagio'
+}
 ```

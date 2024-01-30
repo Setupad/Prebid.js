@@ -5,9 +5,6 @@ Example showing `cookie` storage for user id data for each of the submodules
 ```
 pbjs.setConfig({
     userSync: {
-        idPriority: {
-            uid2: ['uid2', 'liveIntentId']
-        }
         userIds: [{
             name: "33acrossId",
             storage: {
@@ -158,9 +155,6 @@ pbjs.setConfig({
         },
         {
             name: "gravitompId"
-        },
-        {
-            name: "mygaruId"
         }
         ],
         syncDelay: 5000,

@@ -6,10 +6,9 @@ import { Renderer } from '../src/Renderer.js';
 import {hasPurpose1Consent} from '../src/utils/gpdr.js';
 
 const INTEGRATION_METHOD = 'prebid.js';
-const BIDDER_CODE = 'yahooAds';
-const BIDDER_ALIASES = ['yahoossp', 'yahooAdvertising']
+const BIDDER_CODE = 'yahoossp';
 const GVLID = 25;
-const ADAPTER_VERSION = '1.1.0';
+const ADAPTER_VERSION = '1.0.2';
 const PREBID_VERSION = '$prebid.version$';
 const DEFAULT_BID_TTL = 300;
 const TEST_MODE_DCN = '8a969516017a7a396ec539d97f540011';
@@ -50,16 +49,12 @@ const SUPPORTED_USER_ID_SOURCES = [
   'quantcast.com',
   'tapad.com',
   'uidapi.com',
+  'verizonmedia.com',
   'yahoo.com',
   'zeotap.com'
 ];
 
 /* Utility functions */
-
-function getConfigValue(bid, key) {
-  const bidderCode = bid.bidder || bid.bidderCode;
-  return config.getConfig(`${bidderCode}.${key}`);
-}
 
 function getSize(size) {
   return {
@@ -111,7 +106,7 @@ function extractUserSyncUrls(syncOptions, pixels) {
  * @param {object} consentData
  * @param {object} consentData.gpp
  * @param {string} consentData.gpp.gppConsent
- * @param {Array} consentData.gpp.applicableSections
+ * @param {array} consentData.gpp.applicableSections
  * @param {object} consentData.gdpr
  * @param {object} consentData.gdpr.consentString
  * @param {object} consentData.gdpr.gdprApplies
@@ -119,12 +114,11 @@ function extractUserSyncUrls(syncOptions, pixels) {
  */
 function updateConsentQueryParams(url, consentData) {
   const parameterMap = {
-    'gdpr_consent': consentData.gdpr ? consentData.gdpr.consentString : '',
-    'gdpr': consentData.gdpr && consentData.gdpr.gdprApplies ? '1' : '0',
-    'us_privacy': consentData.uspConsent ? consentData.uspConsent : '',
-    'gpp': consentData.gpp ? consentData.gpp.gppString : '',
-    'gpp_sid': consentData.gpp && Array.isArray(consentData.gpp.applicableSections)
-      ? consentData.gpp.applicableSections.join(',') : ''
+    'gdpr_consent': consentData.gdpr.consentString,
+    'gdpr': consentData.gdpr.gdprApplies ? '1' : '0',
+    'us_privacy': consentData.uspConsent,
+    'gpp': consentData.gpp.gppString,
+    'gpp_sid': consentData.gpp.applicableSections ? consentData.gpp.applicableSections.join(',') : ''
   }
 
   const existingUrl = new URL(url);
@@ -161,8 +155,8 @@ function getPubIdMode(bid) {
   return pubIdMode;
 };
 
-function getAdapterMode(bid) {
-  let adapterMode = getConfigValue(bid, 'mode');
+function getAdapterMode() {
+  let adapterMode = config.getConfig('yahoossp.mode');
   adapterMode = adapterMode ? adapterMode.toLowerCase() : undefined;
   if (typeof adapterMode === 'undefined' || adapterMode === BANNER) {
     return BANNER;
@@ -183,7 +177,7 @@ function getResponseFormat(bid) {
 };
 
 function getFloorModuleData(bid) {
-  const adapterMode = getAdapterMode(bid);
+  const adapterMode = getAdapterMode();
   const getFloorRequestObject = {
     currency: deepAccess(bid, 'params.bidOverride.cur') || DEFAULT_CURRENCY,
     mediaType: adapterMode,
@@ -193,7 +187,7 @@ function getFloorModuleData(bid) {
 };
 
 function filterBidRequestByMode(validBidRequests) {
-  const mediaTypesMode = getAdapterMode(validBidRequests[0]);
+  const mediaTypesMode = getAdapterMode();
   let result = [];
   if (mediaTypesMode === BANNER) {
     result = validBidRequests.filter(bid => {
@@ -250,7 +244,7 @@ function validateAppendObject(validationType, allowedKeys, inputObject, appendTo
 };
 
 function getTtl(bidderRequest) {
-  const globalTTL = getConfigValue(bidderRequest, 'ttl');
+  const globalTTL = config.getConfig('yahoossp.ttl');
   return globalTTL ? validateTTL(globalTTL) : validateTTL(deepAccess(bidderRequest, 'params.ttl'));
 };
 
@@ -282,8 +276,8 @@ function generateOpenRtbObject(bidderRequest, bid) {
         ext: {
           'us_privacy': bidderRequest.uspConsent ? bidderRequest.uspConsent : '',
           gdpr: bidderRequest.gdprConsent && bidderRequest.gdprConsent.gdprApplies ? 1 : 0,
-          gpp: bidderRequest.gppConsent ? bidderRequest.gppConsent.gppString : '',
-          gpp_sid: bidderRequest.gppConsent ? bidderRequest.gppConsent.applicableSections : []
+          gpp: bidderRequest.gppConsent.gppString,
+          gpp_sid: bidderRequest.gppConsent.applicableSections
         }
       },
       source: {
@@ -338,7 +332,7 @@ function generateOpenRtbObject(bidderRequest, bid) {
 };
 
 function appendImpObject(bid, openRtbObject) {
-  const mediaTypeMode = getAdapterMode(bid);
+  const mediaTypeMode = getAdapterMode();
 
   if (openRtbObject && bid) {
     const impObject = {
@@ -500,21 +494,20 @@ function appendFirstPartyData(outBoundBidRequest, bid) {
 
 function generateServerRequest({payload, requestOptions, bidderRequest}) {
   const pubIdMode = getPubIdMode(bidderRequest);
-  const overrideEndpoint = getConfigValue(bidderRequest, 'endpoint');
-  let sspEndpoint = overrideEndpoint || SSP_ENDPOINT_DCN_POS;
+  let sspEndpoint = config.getConfig('yahoossp.endpoint') || SSP_ENDPOINT_DCN_POS;
 
   if (pubIdMode === true) {
-    sspEndpoint = overrideEndpoint || SSP_ENDPOINT_PUBID;
+    sspEndpoint = config.getConfig('yahoossp.endpoint') || SSP_ENDPOINT_PUBID;
   };
 
   if (deepAccess(bidderRequest, 'params.testing.e2etest') === true) {
-    logInfo('Adapter e2etest mode is active');
+    logInfo('yahoossp adapter e2etest mode is active');
     requestOptions.withCredentials = false;
 
     if (pubIdMode === true) {
       payload.site.id = TEST_MODE_PUBID_DCN;
     } else {
-      const mediaTypeMode = getAdapterMode(bidderRequest);
+      const mediaTypeMode = getAdapterMode();
       payload.site.id = TEST_MODE_DCN;
       payload.imp.forEach(impObject => {
         impObject.ext.e2eTestMode = true;
@@ -523,9 +516,8 @@ function generateServerRequest({payload, requestOptions, bidderRequest}) {
         } else if (mediaTypeMode === VIDEO) {
           impObject.tagid = TEST_MODE_VIDEO_POS; // video passback
         } else {
-          const bidderCode = bidderRequest.bidderCode;
-          logWarn(`e2etest mode does not support ${bidderCode}.mode="all". \n Please specify either "banner" or "video"`);
-          logWarn(`Adapter e2etest mode: Please make sure your adUnit matches the ${bidderCode}.mode video or banner`);
+          logWarn('yahoossp adapter e2etest mode does not support yahoossp.mode="all". \n Please specify either "banner" or "video"');
+          logWarn('yahoossp adapter e2etest mode: Please make sure your adUnit matches the yahoossp.mode video or banner');
         }
       });
     }
@@ -536,7 +528,7 @@ function generateServerRequest({payload, requestOptions, bidderRequest}) {
     method: 'POST',
     data: payload,
     options: requestOptions,
-    bidderRequest // Additional data for use in interpretResponse()
+    bidderRequest: bidderRequest
   };
 };
 
@@ -555,7 +547,7 @@ function createRenderer(bidderRequest, bidResponse) {
       }, deepAccess(bidderRequest, 'params.testing.renderer.setTimeout') || DEFAULT_RENDERER_TIMEOUT);
     });
   } catch (error) {
-    logWarn('Renderer error: setRender() failed', error);
+    logWarn('yahoossp renderer error: setRender() failed', error);
   }
   return renderer;
 }
@@ -565,7 +557,7 @@ function createRenderer(bidderRequest, bidResponse) {
 export const spec = {
   code: BIDDER_CODE,
   gvlid: GVLID,
-  aliases: BIDDER_ALIASES,
+  aliases: [],
   supportedMediaTypes: [BANNER, VIDEO],
 
   isBidRequestValid: function(bid) {
@@ -578,14 +570,14 @@ export const spec = {
     ) {
       return true;
     } else {
-      logWarn('Bidder params missing or incorrect, please pass object with either: dcn & pos OR pubId');
+      logWarn('yahoossp bidder params missing or incorrect, please pass object with either: dcn & pos OR pubId');
       return false;
     }
   },
 
   buildRequests: function(validBidRequests, bidderRequest) {
     if (isEmpty(validBidRequests) || isEmpty(bidderRequest)) {
-      logWarn('buildRequests called with either empty "validBidRequests" or "bidderRequest"');
+      logWarn('yahoossp Adapter: buildRequests called with either empty "validBidRequests" or "bidderRequest"');
       return undefined;
     };
 
@@ -600,12 +592,13 @@ export const spec = {
 
     const filteredBidRequests = filterBidRequestByMode(validBidRequests);
 
-    if (getConfigValue(bidderRequest, 'singleRequestMode') === true) {
+    if (config.getConfig('yahoossp.singleRequestMode') === true) {
       const payload = generateOpenRtbObject(bidderRequest, filteredBidRequests[0]);
       filteredBidRequests.forEach(bid => {
         appendImpObject(bid, payload);
       });
-      return [generateServerRequest({payload, requestOptions, bidderRequest})];
+
+      return generateServerRequest({payload, requestOptions, bidderRequest});
     }
 
     return filteredBidRequests.map(bid => {
@@ -615,11 +608,12 @@ export const spec = {
     });
   },
 
-  interpretResponse: function(serverResponse, { bidderRequest }) {
+  interpretResponse: function(serverResponse, { data, bidderRequest }) {
     const response = [];
     if (!serverResponse.body || !Array.isArray(serverResponse.body.seatbid)) {
       return response;
     }
+
     let seatbids = serverResponse.body.seatbid;
     seatbids.forEach(seatbid => {
       let bid;
@@ -634,6 +628,7 @@ export const spec = {
 
       let bidResponse = {
         adId: deepAccess(bid, 'adId') ? bid.adId : bid.impid || bid.crid,
+        adUnitCode: bidderRequest.adUnitCode,
         requestId: bid.impid,
         cpm: cpm,
         width: bid.w,

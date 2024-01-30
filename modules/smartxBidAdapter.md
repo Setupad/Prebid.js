@@ -3,7 +3,7 @@
 ```
 Module Name: smartclip Bidder Adapter
 Module Type: Bidder Adapter
-Maintainer: bidding@smartclip.tv
+Maintainer: adtech@smartclip.tv
 ```
 
 # Description

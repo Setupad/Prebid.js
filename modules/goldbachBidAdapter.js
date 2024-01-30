@@ -1,9 +1,15 @@
 import {Renderer} from '../src/Renderer.js';
 import {
+  chunk,
+  convertCamelToUnderscore,
+  convertTypes,
   createTrackPixelHtml,
   deepAccess,
   deepClone,
+  fill,
   getBidRequest,
+  getMaxValueFromArray,
+  getMinValueFromArray,
   getParameterByName,
   isArray,
   isArrayOfNums,
@@ -23,17 +29,9 @@ import {auctionManager} from '../src/auctionManager.js';
 import {find, includes} from '../src/polyfill.js';
 import {INSTREAM, OUTSTREAM} from '../src/video.js';
 import {hasPurpose1Consent} from '../src/utils/gpdr.js';
-import {convertOrtbRequestToProprietaryNative} from '../src/native.js';
-import {APPNEXUS_CATEGORY_MAPPING} from '../libraries/categoryTranslationMapping/index.js';
-import {getANKeywordParam, transformBidderParamKeywords} from '../libraries/appnexusUtils/anKeywords.js';
-import {convertCamelToUnderscore, fill} from '../libraries/appnexusUtils/anUtils.js';
-import {convertTypes} from '../libraries/transformParamsUtils/convertTypes.js';
-import {chunk} from '../libraries/chunk/chunk.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
+import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
+import { APPNEXUS_CATEGORY_MAPPING } from '../libraries/categoryTranslationMapping/index.js';
+import {getANKeywordParam, transformBidderParamKeywords} from '../libraries/appnexusKeywords/anKeywords.js';
 
 const BIDDER_CODE = 'goldbach';
 const URL = 'https://ib.adnxs.com/ut/v3/prebid';
@@ -973,7 +971,7 @@ function createAdPodRequest(tags, adPodBid) {
   const { durationRangeSec, requireExactDuration } = adPodBid.mediaTypes.video;
 
   const numberOfPlacements = getAdPodPlacementNumber(adPodBid.mediaTypes.video);
-  const maxDuration = Math.max(...durationRangeSec);
+  const maxDuration = getMaxValueFromArray(durationRangeSec);
 
   const tagToDuplicate = tags.filter(tag => tag.uuid === adPodBid.bidId);
   let request = fill(...tagToDuplicate, numberOfPlacements);
@@ -999,7 +997,7 @@ function createAdPodRequest(tags, adPodBid) {
 
 function getAdPodPlacementNumber(videoParams) {
   const { adPodDurationSec, durationRangeSec, requireExactDuration } = videoParams;
-  const minAllowedDuration = Math.min(...durationRangeSec);
+  const minAllowedDuration = getMinValueFromArray(durationRangeSec);
   const numberOfPlacements = Math.floor(adPodDurationSec / minAllowedDuration);
 
   return requireExactDuration

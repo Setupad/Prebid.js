@@ -1,16 +1,4 @@
-import {
-  logWarn,
-  logInfo,
-  isArray,
-  isFn,
-  deepAccess,
-  isEmpty,
-  contains,
-  timestamp,
-  triggerPixel,
-  isInteger,
-  getBidIdParameter
-} from '../src/utils.js';
+import { logWarn, logInfo, isArray, isFn, deepAccess, isEmpty, contains, timestamp, getBidIdParameter, triggerPixel, isInteger } from '../src/utils.js';
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {BANNER, VIDEO} from '../src/mediaTypes.js';
 import {config} from '../src/config.js';
@@ -19,7 +7,7 @@ const SUPPORTED_AD_TYPES = [BANNER, VIDEO];
 const BIDDER_CODE = 'minutemedia';
 const ADAPTER_VERSION = '6.0.0';
 const TTL = 360;
-const DEFAULT_CURRENCY = 'USD';
+const CURRENCY = 'USD';
 const SELLER_ENDPOINT = 'https://hb.minutemedia-prebid.com/';
 const MODES = {
   PRODUCTION: 'hb-mm-multi',
@@ -72,7 +60,7 @@ export const spec = {
         const bidResponse = {
           requestId: adUnit.requestId,
           cpm: adUnit.cpm,
-          currency: adUnit.currency || DEFAULT_CURRENCY,
+          currency: adUnit.currency || CURRENCY,
           width: adUnit.width,
           height: adUnit.height,
           ttl: adUnit.ttl || TTL,
@@ -141,16 +129,16 @@ registerBidder(spec);
  * @param bid {bid}
  * @returns {Number}
  */
-function getFloor(bid, mediaType, currency) {
+function getFloor(bid, mediaType) {
   if (!isFn(bid.getFloor)) {
     return 0;
   }
   let floorResult = bid.getFloor({
-    currency: currency,
+    currency: CURRENCY,
     mediaType: mediaType,
     size: '*'
   });
-  return floorResult.currency === currency && floorResult.floor ? floorResult.floor : 0;
+  return floorResult.currency === CURRENCY && floorResult.floor ? floorResult.floor : 0;
 }
 
 /**
@@ -286,7 +274,6 @@ function generateBidParameters(bid, bidderRequest) {
   const {params} = bid;
   const mediaType = isBanner(bid) ? BANNER : VIDEO;
   const sizesArray = getSizesArray(bid, mediaType);
-  const currency = params.currency || config.getConfig('currency.adServerCurrency') || DEFAULT_CURRENCY;
 
   // fix floor price in case of NAN
   if (isNaN(params.floorPrice)) {
@@ -297,13 +284,12 @@ function generateBidParameters(bid, bidderRequest) {
     mediaType,
     adUnitCode: getBidIdParameter('adUnitCode', bid),
     sizes: sizesArray,
-    currency: currency,
-    floorPrice: Math.max(getFloor(bid, mediaType, currency), params.floorPrice),
+    floorPrice: Math.max(getFloor(bid, mediaType), params.floorPrice),
     bidId: getBidIdParameter('bidId', bid),
     loop: getBidIdParameter('bidderRequestsCount', bid),
     bidderRequestId: getBidIdParameter('bidderRequestId', bid),
     transactionId: bid.ortb2Imp?.ext?.tid || '',
-    coppa: 0,
+    coppa: 0
   };
 
   const pos = deepAccess(bid, `mediaTypes.${mediaType}.pos`);
@@ -319,15 +305,6 @@ function generateBidParameters(bid, bidderRequest) {
   const placementId = params.placementId || deepAccess(bid, `mediaTypes.${mediaType}.name`);
   if (placementId) {
     bidObject.placementId = placementId;
-  }
-
-  const mimes = deepAccess(bid, `mediaTypes.${mediaType}.mimes`);
-  if (mimes) {
-    bidObject.mimes = mimes;
-  }
-  const api = deepAccess(bid, `mediaTypes.${mediaType}.api`);
-  if (api) {
-    bidObject.api = api;
   }
 
   const sua = deepAccess(bid, `ortb2.device.sua`);
@@ -381,11 +358,6 @@ function generateBidParameters(bid, bidderRequest) {
       bidObject.linearity = linearity;
     }
 
-    const protocols = deepAccess(bid, `mediaTypes.video.protocols`);
-    if (protocols) {
-      bidObject.protocols = protocols;
-    }
-
     const plcmt = deepAccess(bid, `mediaTypes.video.plcmt`);
     if (plcmt) {
       bidObject.plcmt = plcmt;
@@ -426,8 +398,7 @@ function generateGeneralParams(generalObject, bidderRequest) {
     dnt: (navigator.doNotTrack == 'yes' || navigator.doNotTrack == '1' || navigator.msDoNotTrack == '1') ? 1 : 0,
     device_type: getDeviceType(navigator.userAgent),
     ua: navigator.userAgent,
-    is_wrapper: !!generalBidParams.isWrapper,
-    session_id: generalBidParams.sessionId || getBidIdParameter('bidderRequestId', generalObject),
+    session_id: getBidIdParameter('bidderRequestId', generalObject),
     tmax: timeout
   }
 
@@ -470,7 +441,7 @@ function generateGeneralParams(generalObject, bidderRequest) {
 
   if (bidderRequest && bidderRequest.refererInfo) {
     generalParams.referrer = deepAccess(bidderRequest, 'refererInfo.ref');
-    generalParams.page_url = deepAccess(bidderRequest, 'refererInfo.page') || deepAccess(window, 'location.href');
+    generalParams.page_url = deepAccess(bidderRequest, 'refererInfo.page') || window.location.href
   }
 
   return generalParams

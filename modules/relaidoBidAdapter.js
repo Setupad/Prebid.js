@@ -1,14 +1,4 @@
-import {
-  deepAccess,
-  logWarn,
-  parseQueryStringParameters,
-  triggerPixel,
-  generateUUID,
-  isArray,
-  isNumber,
-  parseSizesInput,
-  getBidIdParameter
-} from '../src/utils.js';
+import { deepAccess, logWarn, getBidIdParameter, parseQueryStringParameters, triggerPixel, generateUUID, isArray, isNumber, parseSizesInput } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 import { Renderer } from '../src/Renderer.js';
@@ -104,8 +94,7 @@ function buildRequests(validBidRequests, bidderRequest) {
       width: width,
       height: height,
       banner_sizes: getBannerSizes(bidRequest),
-      media_type: mediaType,
-      userIdAsEids: bidRequest.userIdAsEids || {},
+      media_type: mediaType
     });
   }
 
@@ -118,7 +107,6 @@ function buildRequests(validBidRequests, bidderRequest) {
     uuid: getUuid(),
     pv: '$prebid.version$',
     imuid: imuid,
-    canonical_url: bidderRequest.refererInfo?.canonicalUrl || null,
     canonical_url_hash: getCanonicalUrlHash(bidderRequest.refererInfo),
     ref: bidderRequest.refererInfo.page
   });
@@ -144,7 +132,6 @@ function interpretResponse(serverResponse, bidRequest) {
     const playerUrl = res.playerUrl || bidRequest.player || body.playerUrl;
     let bidResponse = {
       requestId: res.bidId,
-      placementId: res.placementId,
       width: res.width,
       height: res.height,
       cpm: res.price,

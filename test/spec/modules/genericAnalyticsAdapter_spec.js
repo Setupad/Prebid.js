@@ -75,7 +75,7 @@ describe('Generic analytics', () => {
             options: {
               url: 'mock',
               events: {
-                mockEvent: null
+                bidResponse: null
               }
             }
           });

@@ -8,13 +8,7 @@
 import { logMessage, logError } from '../src/utils.js';
 import { ajaxBuilder } from '../src/ajax.js';
 import { submodule } from '../src/hook.js';
-import { uspDataHandler, coppaDataHandler, gppDataHandler } from '../src/adapterManager.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
+import { uspDataHandler } from '../src/adapterManager.js';
 
 const MODULE_NAME = '33acrossId';
 const API_URL = 'https://lexicon.33across.com/v1/envelope';
@@ -43,30 +37,19 @@ function getEnvelope(response) {
 function calculateQueryStringParams(pid, gdprConsentData) {
   const uspString = uspDataHandler.getConsentData();
   const gdprApplies = Boolean(gdprConsentData?.gdprApplies);
-  const coppaValue = coppaDataHandler.getCoppa();
-  const gppConsent = gppDataHandler.getConsentData();
-
   const params = {
     pid,
     gdpr: Number(gdprApplies),
     src: CALLER_NAME,
-    ver: '$prebid.version$',
-    coppa: Number(coppaValue)
+    ver: '$prebid.version$'
   };
 
   if (uspString) {
     params.us_privacy = uspString;
   }
 
-  if (gppConsent) {
-    const { gppString = '', applicableSections = [] } = gppConsent;
-
-    params.gpp = gppString;
-    params.gpp_sid = encodeURIComponent(applicableSections.join(','))
-  }
-
-  if (gdprConsentData?.consentString) {
-    params.gdpr_consent = gdprConsentData.consentString;
+  if (gdprApplies) {
+    params.gdpr_consent = gdprConsentData.consentString || '';
   }
 
   return params;
@@ -132,15 +115,6 @@ export const thirthyThreeAcrossIdSubmodule = {
         }, calculateQueryStringParams(pid, gdprConsentData), { method: 'GET', withCredentials: true });
       }
     };
-  },
-  eids: {
-    '33acrossId': {
-      source: '33across.com',
-      atype: 1,
-      getValue: function(data) {
-        return data.envelope;
-      }
-    },
   }
 };
 

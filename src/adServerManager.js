@@ -34,7 +34,7 @@ const prebid = getGlobal();
 /**
  * @typedef {Object} VideoSupport
  *
- * @property {VideoAdUrlBuilder} buildVideoAdUrl
+ * @function {VideoAdUrlBuilder} buildVideoAdUrl
  */
 
 /**

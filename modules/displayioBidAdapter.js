@@ -1,7 +1,7 @@
 import {registerBidder} from '../src/adapters/bidderFactory.js';
 import {BANNER, VIDEO} from '../src/mediaTypes.js';
 import {Renderer} from '../src/Renderer.js';
-import {logWarn} from '../src/utils.js';
+import {getWindowFromDocument, logWarn} from '../src/utils.js';
 import {getStorageManager} from '../src/storageManager.js';
 import {getAllOrtbKeywords} from '../libraries/keywords/keywords.js';
 
@@ -156,7 +156,7 @@ function newRenderer(bid) {
 
 function webisRender(bid, doc) {
   bid.renderer.push(() => {
-    const win = doc?.defaultView || window;
+    const win = getWindowFromDocument(doc) || window;
     win.webis.init(bid.adData, bid.adUnitCode, bid.params);
   })
 }

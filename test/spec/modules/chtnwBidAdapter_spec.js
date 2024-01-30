@@ -39,10 +39,7 @@ describe('ChtnwAdapter', function () {
       ],
     }];
 
-    let request;
-    before(() => {
-      request = spec.buildRequests(bidRequests);
-    })
+    const request = spec.buildRequests(bidRequests);
 
     it('Returns POST method', function () {
       expect(request.method).to.equal('POST');

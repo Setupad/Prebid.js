@@ -1,15 +1,16 @@
 import {expect} from 'chai';
 import {
-  addBidResponseHook,
+  validateMultibid,
   adjustBidderRequestsHook,
+  addBidResponseHook,
   resetMultibidUnits,
-  resetMultiConfig,
   sortByMultibid,
   targetBidPoolHook,
-  validateMultibid
+  resetMultiConfig
 } from 'modules/multibid/index.js';
+import {parse as parseQuery} from 'querystring';
 import {config} from 'src/config.js';
-import {getHighestCpm} from '../../../src/utils/reducers.js';
+import * as utils from 'src/utils.js';
 
 describe('multibid adapter', function () {
   let bidArray = [{
@@ -544,7 +545,7 @@ describe('multibid adapter', function () {
 
     it('it does not run filter on bidsReceived if no multibid configuration found', function () {
       let bids = [{...bidArray[0]}, {...bidArray[1]}];
-      targetBidPoolHook(callbackFn, bids, getHighestCpm);
+      targetBidPoolHook(callbackFn, bids, utils.getHighestCpm);
 
       expect(result).to.not.equal(null);
       expect(result.bidsReceived).to.not.equal(null);
@@ -561,7 +562,7 @@ describe('multibid adapter', function () {
 
       config.setConfig({multibid: [{bidder: 'bidderA', maxBids: 2}]});
 
-      targetBidPoolHook(callbackFn, bids, getHighestCpm);
+      targetBidPoolHook(callbackFn, bids, utils.getHighestCpm);
       bids.pop();
 
       expect(result).to.not.equal(null);
@@ -583,7 +584,7 @@ describe('multibid adapter', function () {
 
       config.setConfig({multibid: [{bidder: 'bidderA', maxBids: 2, targetBiddercodePrefix: 'bidA'}]});
 
-      targetBidPoolHook(callbackFn, modifiedBids, getHighestCpm);
+      targetBidPoolHook(callbackFn, modifiedBids, utils.getHighestCpm);
 
       expect(result).to.not.equal(null);
       expect(result.bidsReceived).to.not.equal(null);
@@ -608,7 +609,7 @@ describe('multibid adapter', function () {
 
       config.setConfig({multibid: [{bidder: 'bidderA', maxBids: 2, targetBiddercodePrefix: 'bidA'}]});
 
-      targetBidPoolHook(callbackFn, modifiedBids, getHighestCpm);
+      targetBidPoolHook(callbackFn, modifiedBids, utils.getHighestCpm);
 
       expect(result).to.not.equal(null);
       expect(result.bidsReceived).to.not.equal(null);
@@ -641,7 +642,7 @@ describe('multibid adapter', function () {
 
       config.setConfig({ multibid: [{bidder: 'bidderA', maxBids: 2, targetBiddercodePrefix: 'bidA'}] });
 
-      targetBidPoolHook(callbackFn, modifiedBids, getHighestCpm, 3);
+      targetBidPoolHook(callbackFn, modifiedBids, utils.getHighestCpm, 3);
 
       expect(result).to.not.equal(null);
       expect(result.bidsReceived).to.not.equal(null);
@@ -669,7 +670,7 @@ describe('multibid adapter', function () {
 
       expect(bidPool.length).to.equal(6);
 
-      targetBidPoolHook(callbackFn, bidPool, getHighestCpm);
+      targetBidPoolHook(callbackFn, bidPool, utils.getHighestCpm);
 
       expect(result).to.not.equal(null);
       expect(result.bidsReceived).to.not.equal(null);
