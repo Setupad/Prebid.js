@@ -6,18 +6,18 @@ import {
   getBidIdParameter,
   triggerPixel,
   logWarn,
-} from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-import { config } from '../src/config.js';
-import * as events from '../src/events.js';
-import { BANNER } from '../src/mediaTypes.js';
-import CONSTANTS from '../src/constants.json';
+} from "../src/utils.js";
+import { registerBidder } from "../src/adapters/bidderFactory.js";
+import { getRefererInfo } from "../src/refererDetection.js";
+import { config } from "../src/config.js";
+import * as events from "../src/events.js";
+import { BANNER } from "../src/mediaTypes.js";
+import CONSTANTS from "../src/constants.json";
 
-const BIDDER_CODE = 'setupad';
-const ENDPOINT = 'https://prebid.setupad.io/openrtb2/auction';
-const SYNC_ENDPOINT = 'https://cookie.stpd.cloud/sync?';
-const REPORT_ENDPOINT = 'https://adapter-analytics.setupad.io';
+const BIDDER_CODE = "setupad";
+const ENDPOINT = "https://prebid.setupad.io/openrtb2/auction";
+const SYNC_ENDPOINT = "https://cookie.stpd.cloud/sync?";
+const REPORT_ENDPOINT = "https://adapter-analytics.setupad.io";
 const GVLID = 1241;
 const TIME_TO_LIVE = 360;
 const biddersCpms = {};
@@ -29,7 +29,7 @@ events.on(CONSTANTS.EVENTS.AUCTION_INIT, () => {
 });
 
 function getEids(bidRequest) {
-  if (deepAccess(bidRequest, 'userIdAsEids')) return bidRequest.userIdAsEids;
+  if (deepAccess(bidRequest, "userIdAsEids")) return bidRequest.userIdAsEids;
 }
 
 export const spec = {
@@ -45,9 +45,10 @@ export const spec = {
     const requests = [];
     window.nmmRefreshCounts = window.nmmRefreshCounts || {};
     _each(validBidRequests, function (bid) {
-      window.nmmRefreshCounts[bid.adUnitCode] = window.nmmRefreshCounts[bid.adUnitCode] || 0;
-      const id = getBidIdParameter('placement_id', bid.params);
-      const accountId = getBidIdParameter('account_id', bid.params);
+      window.nmmRefreshCounts[bid.adUnitCode] =
+        window.nmmRefreshCounts[bid.adUnitCode] || 0;
+      const id = getBidIdParameter("placement_id", bid.params);
+      const accountId = getBidIdParameter("account_id", bid.params);
       const auctionId = bid.auctionId;
       const bidId = bid.bidId;
       const eids = getEids(bid) || [];
@@ -62,7 +63,7 @@ export const spec = {
         ext: {
           prebid: {
             storedrequest: {
-              id: accountId || 'default',
+              id: accountId || "default",
             },
           },
 
@@ -87,7 +88,7 @@ export const spec = {
         },
       };
 
-      if (deepAccess(bid, 'mediaTypes.banner')) {
+      if (deepAccess(bid, "mediaTypes.banner")) {
         imp.banner = {
           format: (sizes || []).map((s) => {
             return { w: s[0], h: s[1] };
@@ -106,11 +107,11 @@ export const spec = {
         if (uspConsent) payload.regs.ext.us_privacy = uspConsent;
 
         if (gdprConsent) {
-          if (typeof gdprConsent.gdprApplies !== 'undefined') {
+          if (typeof gdprConsent.gdprApplies !== "undefined") {
             payload.regs.ext.gdpr = gdprConsent.gdprApplies ? 1 : 0;
           }
 
-          if (typeof gdprConsent.consentString !== 'undefined') {
+          if (typeof gdprConsent.consentString !== "undefined") {
             payload.user.ext.consent = gdprConsent.consentString;
           }
         }
@@ -118,11 +119,11 @@ export const spec = {
       const params = bid.params;
 
       requests.push({
-        method: 'POST',
+        method: "POST",
         url: ENDPOINT,
         data: JSON.stringify(payload),
         options: {
-          contentType: 'text/plain',
+          contentType: "text/plain",
           withCredentials: true,
         },
 
@@ -139,10 +140,10 @@ export const spec = {
     if (
       !serverResponse ||
       !serverResponse.body ||
-      typeof serverResponse.body != 'object' ||
+      typeof serverResponse.body != "object" ||
       Object.keys(serverResponse.body).length === 0
     ) {
-      logWarn('no response or body is malformed');
+      logWarn("no response or body is malformed");
       return [];
     }
 
@@ -193,15 +194,15 @@ export const spec = {
       const queryParams = [];
 
       queryParams.push(`bidders=${bidders}`);
-      queryParams.push('gdpr=' + +gdprConsent.gdprApplies);
-      queryParams.push('gdpr_consent=' + gdprConsent.consentString);
-      queryParams.push('usp_consent=' + (uspConsent || ''));
+      queryParams.push("gdpr=" + +gdprConsent.gdprApplies);
+      queryParams.push("gdpr_consent=" + gdprConsent.consentString);
+      queryParams.push("usp_consent=" + (uspConsent || ""));
 
-      const strQueryParams = queryParams.join('&');
+      const strQueryParams = queryParams.join("&");
 
       syncs.push({
-        type: 'iframe',
-        url: SYNC_ENDPOINT + strQueryParams + '&type=iframe',
+        type: "iframe",
+        url: SYNC_ENDPOINT + strQueryParams + "&type=iframe",
       });
 
       return syncs;
@@ -232,11 +233,12 @@ export const spec = {
       placementIdsArray.push(param.placement_id);
     });
 
-    const placementIds = (placementIdsArray.length && placementIdsArray.join(';')) || '';
+    const placementIds =
+      (placementIdsArray.length && placementIdsArray.join(";")) || "";
 
     if (!placementIds) return;
 
-    let extraBidParams = '';
+    let extraBidParams = "";
 
     if (eventName === CONSTANTS.EVENTS.BID_RESPONSE) {
       bidder = JSON.stringify(biddersCpms);
@@ -259,6 +261,14 @@ export const spec = {
 
       // Add extra parameters
       extraBidParams = `&cpm=${bid.originalCpm}&currency=${bid.originalCurrency}`;
+    }
+
+    if (
+      eventName === CONSTANTS.EVENTS.BID_REQUESTED ||
+      eventName === CONSTANTS.EVENTS.BID_TIMEOUT ||
+      eventName === CONSTANTS.EVENTS.NO_BID
+    ) {
+      bidder = BIDDER_CODE;
     }
 
     const url = `${REPORT_ENDPOINT}?event=${eventName}&bidder=${bidder}&placementIds=${placementIds}&auctionId=${auctionId}${extraBidParams}&timestamp=${timestamp}`;
@@ -288,7 +298,7 @@ function getAdEl(bid) {
       .find((slot) => slot.getAdUnitPath() === bid.adUnitCode);
   const slotElementId = slot && slot.getSlotElementId();
   if (!slotElementId) return null;
-  return document.querySelector('#' + slotElementId);
+  return document.querySelector("#" + slotElementId);
 }
 
 function getBoundingClient(bid) {
@@ -300,7 +310,7 @@ function getBoundingClient(bid) {
 function getAd(bid) {
   let ad, adUrl, vastXml, vastUrl;
 
-  switch (deepAccess(bid, 'ext.prebid.type')) {
+  switch (deepAccess(bid, "ext.prebid.type")) {
     default:
       if (bid.adm && bid.nurl) {
         ad = bid.adm;
@@ -356,7 +366,8 @@ function initSendingDataStatistic() {
     eventHendlers = {};
 
     initEvents() {
-      this.disabledSending = !!config.getBidderConfig()?.setupad?.disabledSendingStatisticData;
+      this.disabledSending =
+        !!config.getBidderConfig()?.setupad?.disabledSendingStatisticData;
       if (this.disabledSending) {
         this.removeEvents();
       } else {
