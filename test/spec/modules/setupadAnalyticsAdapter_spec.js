@@ -3,7 +3,7 @@ import { handleAdUnitCodes } from '../../../modules/setupadAnalyticsAdapter.js';
 import adapterManager from '../../../src/adapterManager.js';
 import { expect } from 'chai';
 import * as events from '../../../src/events.js';
-import CONSTANTS from '../../../src/constants.json';
+import { EVENTS } from '../../../src/constants.js';
 import { generateUUID } from '../../../src/utils.js';
 import { server } from 'test/mocks/xhr.js';
 
@@ -40,9 +40,6 @@ describe('setupadAnalyticsAdapter', () => {
     it('should send proper data to backend', () => {
       setupadAnalyticsAdapter.enableAnalytics({
         provider: 'setupad',
-        options: {
-          pid: 123,
-        },
       });
 
       const auctionInitPayload = {
@@ -58,10 +55,9 @@ describe('setupadAnalyticsAdapter', () => {
           },
         ],
       };
-      events.emit(CONSTANTS.EVENTS.AUCTION_INIT, auctionInitPayload);
-      events.emit(CONSTANTS.EVENTS.AUCTION_END, auctionEndPayload);
+      events.emit(EVENTS.AUCTION_INIT, auctionInitPayload);
+      events.emit(EVENTS.AUCTION_END, auctionEndPayload);
       expect(server.requests).to.have.lengthOf.at.least(1);
-      expect(server.requests[0].url).to.not.contain('?bidWon=true');
 
       // check if request has proper payload
       const body = JSON.parse(server.requests[0].requestBody);
@@ -71,28 +67,25 @@ describe('setupadAnalyticsAdapter', () => {
       let eventTypes = [];
       body.data.forEach((e) => eventTypes.push(e.eventType));
       expect(eventTypes).to.have.lengthOf.at.least(1);
-      expect(eventTypes).to.include(CONSTANTS.EVENTS.AUCTION_END, CONSTANTS.EVENTS.AUCTION_INIT);
+      expect(eventTypes).to.include(EVENTS.AUCTION_END, EVENTS.AUCTION_INIT);
     });
 
     it('sends bid won events to the backend', () => {
       setupadAnalyticsAdapter.enableAnalytics({
         provider: 'setupad',
-        options: {
-          pid: 123,
-        },
       });
       const auction = { adUnitCode: '12345', bidderCode: 'test-code' };
 
-      events.emit(CONSTANTS.EVENTS.BID_WON, auction);
+      events.emit(EVENTS.BID_WON, auction);
       expect(server.requests).to.have.lengthOf.at.least(2);
 
-      // check if bid won request is sent
-      const bidWonRequest = server.requests.filter(({ url }) => url.includes('?bidWon=true'));
-      expect(bidWonRequest).to.have.lengthOf.at.least(1);
-
       // check if bid won request has proper payload
-      const body = JSON.parse(bidWonRequest[0].requestBody);
-      expect(body).to.have.keys('data', 'adUnitCode');
+      const bidWonRequest = server.requests.find((req) =>
+        req.requestBody.includes('"eventType":"bidWon"')
+      );
+
+      const body = JSON.parse(bidWonRequest.requestBody);
+      expect(body).to.have.keys('data', 'adUnitCodes');
     });
   });
 });

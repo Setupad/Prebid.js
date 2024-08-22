@@ -1,113 +1,108 @@
 import { ajax } from '../src/ajax.js';
+import { EVENTS } from '../src/constants.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
-import CONSTANTS from '../src/constants.json';
 import adapterManager from '../src/adapterManager.js';
-import { getGptSlotInfoForAdUnitCode, logError, logInfo } from '../src/utils.js';
+import { logInfo } from '../src/utils.js';
+import { getGptSlotInfoForAdUnitCode } from '../libraries/gptUtils/gptUtils.js';
 
 const analyticsType = 'endpoint';
+const setupadAnalyticsEndpoint = 'https://analytics.setupad.io/api/prebid';
 const GVLID = 1241;
-const setupadAnalyticsEndpoint =
-  'https://function-analytics-setupad-adapter.azurewebsites.net/api/function-analytics-setupad-adapter';
 
-let initOptions = {};
 let eventQueue = [];
 let adUnitCodesCache = [];
-
-function auctionInitHandler(args) {
-  const auctionInit = {
-    eventType: CONSTANTS.EVENTS.AUCTION_INIT,
-    args: args,
-  };
-  sendEvent(auctionInit);
-}
-
-function bidRequestedHandler(args) {
-  const bidRequested = {
-    eventType: CONSTANTS.EVENTS.BID_REQUESTED,
-    args: args,
-  };
-  sendEvent(bidRequested);
-}
-
-function bidResponseHandler(args) {
-  const bidResponse = {
-    eventType: CONSTANTS.EVENTS.BID_RESPONSE,
-    args: args,
-  };
-  sendEvent(bidResponse);
-}
-
-function bidderDoneHandler(args) {
-  const bidderDone = {
-    eventType: CONSTANTS.EVENTS.BIDDER_DONE,
-    args: args,
-  };
-  sendEvent(bidderDone);
-}
-
-function bidWonHandler(args) {
-  bidWonCall(args);
-}
-
-function noBidHandler(args) {
-  const noBid = {
-    eventType: CONSTANTS.EVENTS.NO_BID,
-    args: args,
-  };
-  sendEvent(noBid);
-}
-
-function auctionEndHandler(args) {
-  const auctionEnd = {
-    eventType: CONSTANTS.EVENTS.AUCTION_END,
-    args: args,
-  };
-  sendEvent(auctionEnd);
-}
-
-function bidTimeoutHandler(args) {
-  sendEvent({
-    eventType: CONSTANTS.EVENTS.BID_TIMEOUT,
-    args: args,
-  });
-}
 
 let setupadAnalyticsAdapter = Object.assign(adapter({ setupadAnalyticsEndpoint, analyticsType }), {
   track({ eventType, args }) {
     switch (eventType) {
-      case CONSTANTS.EVENTS.AUCTION_INIT:
-        auctionInitHandler(args);
+      case EVENTS.AUCTION_INIT:
+        queueEvent({
+          eventType: EVENTS.AUCTION_INIT,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.BID_REQUESTED:
-        bidRequestedHandler(args);
+
+      case EVENTS.BID_REQUESTED:
+        queueEvent({
+          eventType: EVENTS.BID_REQUESTED,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.BID_RESPONSE:
-        bidResponseHandler(args);
+
+      case EVENTS.BID_RESPONSE:
+        queueEvent({
+          eventType: EVENTS.BID_RESPONSE,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.BIDDER_DONE:
-        bidderDoneHandler(args);
+
+      case EVENTS.BIDDER_DONE:
+        queueEvent({
+          eventType: EVENTS.BIDDER_DONE,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.BID_WON:
-        bidWonHandler(args);
+
+      case EVENTS.BID_WON:
+        sendBidWonAnalytics(args);
         break;
-      case CONSTANTS.EVENTS.NO_BID:
-        noBidHandler(args);
+
+      case EVENTS.NO_BID:
+        queueEvent({
+          eventType: EVENTS.NO_BID,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.AUCTION_END:
-        auctionEndHandler(args);
+
+      case EVENTS.AUCTION_END:
+        queueEvent({
+          eventType: EVENTS.AUCTION_END,
+          args: args,
+        });
         break;
-      case CONSTANTS.EVENTS.BID_TIMEOUT:
-        bidTimeoutHandler(args);
+
+      case EVENTS.BID_TIMEOUT:
+        queueEvent({
+          eventType: EVENTS.BID_TIMEOUT,
+          args: args,
+        });
         break;
     }
   },
 });
 
-function call() {
+/**
+ * Sends a bid won event to the Setupad analytics endpoint.
+ * @param {Object} args - The arguments object containing bid won data.
+ * @returns {void}
+ */
+function sendBidWonAnalytics(args) {
+  ajax(
+    setupadAnalyticsEndpoint,
+    () => logInfo('SETUPAD_ANALYTICS_BATCH_SENT'),
+    JSON.stringify({
+      data: [{
+        eventType: EVENTS.BID_WON,
+        args: args,
+      }],
+      adUnitCodes: handleAdUnitCodes([args.adUnitCode]),
+    }),
+    {
+      contentType: 'application/json',
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * Sends batch of all stored events and their data to Setupad analytics endpoint and flushes existing batch
+ * @returns {void}
+ */
+function sendBatchAnalytics() {
   if (eventQueue.length > 0) {
     ajax(
       setupadAnalyticsEndpoint,
-      () => logInfo('SETUPAD_ANALYTICS_BATCH_SEND'),
+      () => logInfo('SETUPAD_ANALYTICS_BATCH_SENT'),
       JSON.stringify({ data: eventQueue, adUnitCodes: adUnitCodesCache }),
       {
         contentType: 'application/json',
@@ -120,6 +115,24 @@ function call() {
   }
 }
 
+/**
+ * Queues event data for our batch and triggers send if it's auction end
+ * @param {object} data - event data to be added to the batch
+ * @returns {void}
+ */
+function queueEvent(data) {
+  eventQueue.push(data);
+  if (data.eventType === EVENTS.AUCTION_INIT) {
+    adUnitCodesCache = handleAdUnitCodes(data?.args?.adUnitCodes);
+  }
+  if (data.eventType === EVENTS.AUCTION_END) sendBatchAnalytics();
+}
+
+/**
+ * Processes an array of ad unit codes and returns an array of objects with formatted information.
+ * @param {string[]} adUnitCodes - an array of ad unit code strings to process
+ * @returns {Object[]}
+ */
 function handleAdUnitCodes(adUnitCodes) {
   if (!Array.isArray(adUnitCodes)) return [];
   return adUnitCodes.map((code) => {
@@ -130,38 +143,6 @@ function handleAdUnitCodes(adUnitCodes) {
     };
   });
 }
-
-function sendEvent(data) {
-  eventQueue.push(data);
-  if (data.eventType === CONSTANTS.EVENTS.AUCTION_INIT) {
-    adUnitCodesCache = handleAdUnitCodes(data?.args?.adUnitCodes);
-  }
-  if (data.eventType === CONSTANTS.EVENTS.AUCTION_END) call();
-}
-
-function bidWonCall(data) {
-  const formatAdUnitCode = getGptSlotInfoForAdUnitCode(data.adUnitCode)?.gptSlot || data.adUnitCode;
-  ajax(
-    `${setupadAnalyticsEndpoint}?bidWon=true`,
-    () => logInfo('SETUPAD_ANALYTICS_BATCH_SEND'),
-    JSON.stringify({ data, adUnitCode: formatAdUnitCode }),
-    {
-      contentType: 'application/json',
-      method: 'POST',
-    }
-  );
-}
-
-// save the base class function
-setupadAnalyticsAdapter.originEnableAnalytics = setupadAnalyticsAdapter.enableAnalytics;
-
-// override enableAnalytics so we can get access to the config passed in from the page
-setupadAnalyticsAdapter.enableAnalytics = function (config) {
-  initOptions = config ? config.options : {};
-  if (!initOptions.pid) return logError('enableAnalytics missing config object with "pid"');
-
-  setupadAnalyticsAdapter.originEnableAnalytics(config); // call the base class function
-};
 
 adapterManager.registerAnalyticsAdapter({
   adapter: setupadAnalyticsAdapter,
