@@ -95,7 +95,6 @@ function sendBidWonAnalytics(args) {
     {
       contentType: 'application/json',
       method: 'POST',
-      keepalive: true,
     }
   );
 }
@@ -113,7 +112,6 @@ function sendBatchAnalytics() {
       {
         contentType: 'application/json',
         method: 'POST',
-        keepalive: true,
       }
     );
 
