@@ -1,9 +1,12 @@
-import { ajax } from '../src/ajax.js';
+import { ajaxBuilder } from '../src/ajax.js';
 import { EVENTS } from '../src/constants.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
 import { logInfo } from '../src/utils.js';
 import { getGptSlotInfoForAdUnitCode } from '../libraries/gptUtils/gptUtils.js';
+
+// Set custom ajax fn with no timeout
+const ajax = ajaxBuilder(null);
 
 const analyticsType = 'endpoint';
 const setupadAnalyticsEndpoint = 'https://analytics.setupad.io/api/prebid';
@@ -81,15 +84,18 @@ function sendBidWonAnalytics(args) {
     setupadAnalyticsEndpoint,
     () => logInfo('SETUPAD_ANALYTICS_BATCH_SENT'),
     JSON.stringify({
-      data: [{
-        eventType: EVENTS.BID_WON,
-        args: args,
-      }],
+      data: [
+        {
+          eventType: EVENTS.BID_WON,
+          args: args,
+        },
+      ],
       adUnitCodes: handleAdUnitCodes([args.adUnitCode]),
     }),
     {
       contentType: 'application/json',
       method: 'POST',
+      keepalive: true,
     }
   );
 }
@@ -107,6 +113,7 @@ function sendBatchAnalytics() {
       {
         contentType: 'application/json',
         method: 'POST',
+        keepalive: true,
       }
     );
 
