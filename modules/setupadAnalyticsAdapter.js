@@ -12,63 +12,43 @@ const analyticsType = 'endpoint';
 const setupadAnalyticsEndpoint = 'https://analytics.setupad.io/api/prebid';
 const GVLID = 1241;
 
-let eventQueue = [];
-let adUnitCodesCache = [];
+let eventQueue = {};
+let adUnitCodesCache = {};
 
 let setupadAnalyticsAdapter = Object.assign(adapter({ setupadAnalyticsEndpoint, analyticsType }), {
   track({ eventType, args }) {
     switch (eventType) {
       case EVENTS.AUCTION_INIT:
-        queueEvent({
-          eventType: EVENTS.AUCTION_INIT,
-          args: args,
-        });
+        pushAdUnitCodesToCache(args?.auctionId, args?.adUnitCodes);
         break;
 
       case EVENTS.BID_REQUESTED:
-        queueEvent({
+        pushToEventQueue({
           eventType: EVENTS.BID_REQUESTED,
           args: args,
         });
         break;
 
       case EVENTS.BID_RESPONSE:
-        queueEvent({
+        pushToEventQueue({
           eventType: EVENTS.BID_RESPONSE,
           args: args,
         });
         break;
 
-      case EVENTS.BIDDER_DONE:
-        queueEvent({
-          eventType: EVENTS.BIDDER_DONE,
-          args: args,
-        });
-        break;
-
-      case EVENTS.BID_WON:
-        sendBidWonAnalytics(args);
-        break;
-
-      case EVENTS.NO_BID:
-        queueEvent({
-          eventType: EVENTS.NO_BID,
+      case EVENTS.BID_TIMEOUT:
+        pushToEventQueue({
+          eventType: EVENTS.BID_TIMEOUT,
           args: args,
         });
         break;
 
       case EVENTS.AUCTION_END:
-        queueEvent({
-          eventType: EVENTS.AUCTION_END,
-          args: args,
-        });
+        sendBatchAnalytics(args?.auctionId);
         break;
 
-      case EVENTS.BID_TIMEOUT:
-        queueEvent({
-          eventType: EVENTS.BID_TIMEOUT,
-          args: args,
-        });
+      case EVENTS.BID_WON:
+        sendBidWonAnalytics(args);
         break;
     }
   },
@@ -103,34 +83,47 @@ function sendBidWonAnalytics(args) {
  * Sends batch of all stored events and their data to Setupad analytics endpoint and flushes existing batch
  * @returns {void}
  */
-function sendBatchAnalytics() {
-  if (eventQueue.length > 0) {
-    ajax(
-      setupadAnalyticsEndpoint,
-      () => logInfo('SETUPAD_ANALYTICS_BATCH_SENT'),
-      JSON.stringify({ data: eventQueue, adUnitCodes: adUnitCodesCache }),
-      {
-        contentType: 'application/json',
-        method: 'POST',
-      }
-    );
+function sendBatchAnalytics(auctionId) {
+  if (!eventQueue[auctionId]) return;
 
-    adUnitCodesCache = [];
-    eventQueue = [];
+  ajax(
+    setupadAnalyticsEndpoint,
+    () => logInfo('SETUPAD_ANALYTICS_BATCH_SENT'),
+    JSON.stringify({ data: eventQueue[auctionId], adUnitCodes: adUnitCodesCache[auctionId] }),
+    {
+      contentType: 'application/json',
+      method: 'POST',
+    }
+  );
+
+  delete adUnitCodesCache[auctionId];
+  delete eventQueue[auctionId];
+}
+
+/**
+ * Queues an event to be sent to the Setupad analytics endpoint.
+ * @param {Object} data - The event data to queue.
+ * @returns {void}
+ */
+function pushToEventQueue(data) {
+  const auctionId = data?.args?.auctionId;
+  if (auctionId) {
+    if (!eventQueue[auctionId]) {
+      eventQueue[auctionId] = [];
+    }
+    eventQueue[auctionId].push(data);
   }
 }
 
 /**
- * Queues event data for our batch and triggers send if it's auction end
- * @param {object} data - event data to be added to the batch
- * @returns {void}
+ * Pushes ad unit codes to cache for later use in batch analytics.
+ * @param {string} auctionId
+ * @param {string[]} adUnitCodes
  */
-function queueEvent(data) {
-  eventQueue.push(data);
-  if (data.eventType === EVENTS.AUCTION_INIT) {
-    adUnitCodesCache = handleAdUnitCodes(data?.args?.adUnitCodes);
-  }
-  if (data.eventType === EVENTS.AUCTION_END) sendBatchAnalytics();
+function pushAdUnitCodesToCache(auctionId, adUnitCodes) {
+  if (!auctionId || !Array.isArray(adUnitCodes)) return;
+
+  adUnitCodesCache[auctionId] = handleAdUnitCodes(adUnitCodes);
 }
 
 /**

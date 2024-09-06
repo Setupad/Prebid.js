@@ -42,13 +42,25 @@ describe('setupadAnalyticsAdapter', () => {
         provider: 'setupad',
       });
 
+      const auctionId = generateUUID();
+
       const auctionInitPayload = {
-        auctionId: generateUUID(),
+        auctionId: auctionId,
         adUnitCodes: ['usr1234'],
       };
 
+      const bidRequestedPayload = {
+        auctionId: auctionId,
+        bids: [
+          {
+            adUnitCode: 'usr1234',
+            bidder: 'bidder1',
+          },
+        ],
+      };
+
       const auctionEndPayload = {
-        auctionId: generateUUID(),
+        auctionId: auctionId,
         adUnits: [
           {
             code: 'usr1234',
@@ -56,18 +68,16 @@ describe('setupadAnalyticsAdapter', () => {
         ],
       };
       events.emit(EVENTS.AUCTION_INIT, auctionInitPayload);
+      events.emit(EVENTS.BID_REQUESTED, auctionInitPayload);
       events.emit(EVENTS.AUCTION_END, auctionEndPayload);
-      expect(server.requests).to.have.lengthOf.at.least(1);
 
       // check if request has proper payload
       const body = JSON.parse(server.requests[0].requestBody);
       expect(body).to.have.keys('data', 'adUnitCodes');
 
-      // check if eventTypes are properly handled
-      let eventTypes = [];
-      body.data.forEach((e) => eventTypes.push(e.eventType));
-      expect(eventTypes).to.have.lengthOf.at.least(1);
-      expect(eventTypes).to.include(EVENTS.AUCTION_END, EVENTS.AUCTION_INIT);
+      // check if request has proper data
+      expect(body.data).to.have.lengthOf(1);
+      expect(body.data[0]).to.have.keys('eventType', 'args');
     });
 
     it('sends bid won events to the backend', () => {
@@ -77,7 +87,7 @@ describe('setupadAnalyticsAdapter', () => {
       const auction = { adUnitCode: '12345', bidderCode: 'test-code' };
 
       events.emit(EVENTS.BID_WON, auction);
-      expect(server.requests).to.have.lengthOf.at.least(2);
+      expect(server.requests).to.have.lengthOf.at.least(1);
 
       // check if bid won request has proper payload
       const bidWonRequest = server.requests.find((req) =>
