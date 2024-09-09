@@ -37,9 +37,12 @@ let setupadAnalyticsAdapter = Object.assign(adapter({ setupadAnalyticsEndpoint, 
         break;
 
       case EVENTS.BID_TIMEOUT:
-        pushToEventQueue({
-          eventType: EVENTS.BID_TIMEOUT,
-          args: args,
+        // bidTimeout arg structure is different, so we need to loop through it
+        args.forEach((timeoutEvent) => {
+          pushToEventQueue({
+            eventType: EVENTS.BID_TIMEOUT,
+            args: timeoutEvent,
+          });
         });
         break;
 
