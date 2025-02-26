@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { spec } from 'modules/setupadBidAdapter.js';
+=======
+import { spec, biddersCreativeIds } from 'modules/setupadBidAdapter.js';
+>>>>>>> origin
 
 describe('SetupadAdapter', function () {
   const userIdAsEids = [
@@ -42,9 +46,110 @@ describe('SetupadAdapter', function () {
       },
       userIdAsEids,
     },
+<<<<<<< HEAD
   ];
 
   const bidderRequest = {
+=======
+    {
+      adUnitCode: 'test-div-2',
+      auctionId: 'b06c5141-fe8f-4cdf-9d7d-54415490a917',
+      bidId: '22c4871113f461',
+      bidder: 'rubicon',
+      bidderRequestId: '15246a574e859f',
+      uspConsent: 'usp-context-string',
+      gdprConsent: {
+        consentString: 'BOtmiBKOtmiBKABABAENAFAAAAACeAAA',
+        gdprApplies: true,
+      },
+      params: {
+        placement_id: '123',
+        account_id: 'test-account-id',
+      },
+      sizes: [[300, 250]],
+      ortb2: {
+        device: {
+          w: 1500,
+          h: 1000,
+        },
+        site: {
+          domain: 'test.com',
+          page: 'http://test.com',
+        },
+      },
+      userIdAsEids,
+    },
+  ];
+
+  const bidderRequest = {
+    auctionId: 'b06c5141-fe8f-4cdf-9d7d-54415490a917',
+    auctionStart: 1579746300522,
+    bidderCode: 'setupad',
+    bidderRequestId: '15246a574e859f',
+    bids: [
+      {
+        adUnitCode: 'test-div',
+        auctionId: 'b06c5141-fe8f-4cdf-9d7d-54415490a917',
+        bidId: '22c4871113f461',
+        bidder: 'rubicon',
+        bidderRequestId: '15246a574e859f',
+        uspConsent: 'usp-context-string',
+        gdprConsent: {
+          consentString: 'BOtmiBKOtmiBKABABAENAFAAAAACeAAA',
+          gdprApplies: true,
+        },
+        params: {
+          placement_id: '123',
+          account_id: 'test-account-id',
+        },
+        sizes: [[300, 250]],
+        ortb2: {
+          device: {
+            w: 1500,
+            h: 1000,
+          },
+          site: {
+            domain: 'test.com',
+            page: 'http://test.com',
+          },
+        },
+        userIdAsEids,
+      },
+      {
+        adUnitCode: 'test-div-2',
+        auctionId: 'b06c5141-fe8f-4cdf-9d7d-54415490a917',
+        bidId: '22c4871113f461',
+        bidder: 'rubicon',
+        bidderRequestId: '15246a574e859f',
+        uspConsent: 'usp-context-string',
+        gdprConsent: {
+          consentString: 'BOtmiBKOtmiBKABABAENAFAAAAACeAAA',
+          gdprApplies: true,
+        },
+        params: {
+          placement_id: '123',
+          account_id: 'test-account-id',
+        },
+        sizes: [[300, 250]],
+        ortb2: {
+          device: {
+            w: 1500,
+            h: 1000,
+          },
+          site: {
+            domain: 'test.com',
+            page: 'http://test.com',
+          },
+        },
+        userIdAsEids,
+      },
+    ],
+    gdprConsent: {
+      consentString: 'BOtmiBKOtmiBKABABAENAFAAAAACeAAA',
+      vendorData: {},
+      gdprApplies: true,
+    },
+>>>>>>> origin
     ortb2: {
       device: {
         w: 1500,
@@ -52,14 +157,22 @@ describe('SetupadAdapter', function () {
       },
     },
     refererInfo: {
+<<<<<<< HEAD
       domain: 'test.com',
       page: 'http://test.com',
       ref: '',
+=======
+      canonicalUrl: null,
+      domain: 'test.com',
+      page: 'http://test.com',
+      referer: null,
+>>>>>>> origin
     },
   };
 
   const serverResponse = {
     body: {
+<<<<<<< HEAD
       id: 'f7b3d2da-e762-410c-b069-424f92c4c4b2',
       seatbid: [
         {
@@ -85,6 +198,20 @@ describe('SetupadAdapter', function () {
         },
       },
     },
+=======
+      seatbid: [
+        {
+          bid: [{ crid: 123 }, { crid: 1234 }],
+          seat: 'pubmatic',
+        },
+        {
+          bid: [{ crid: 12345 }],
+          seat: 'setupad',
+        },
+      ],
+    },
+    testCase: 1,
+>>>>>>> origin
   };
 
   describe('isBidRequestValid', function () {
@@ -92,11 +219,34 @@ describe('SetupadAdapter', function () {
       bidder: 'setupad',
       params: {
         placement_id: '123',
+<<<<<<< HEAD
       },
     };
     it('should return true when required params found', function () {
       expect(spec.isBidRequestValid(bid)).to.equal(true);
     });
+=======
+        account_id: '123',
+      },
+    };
+
+    it('should return true when required params found', function () {
+      expect(spec.isBidRequestValid(bid)).to.equal(true);
+    });
+
+    it('should return false when placement_id is missing', function () {
+      const bidWithoutPlacementId = { ...bid };
+      delete bidWithoutPlacementId.params.placement_id;
+      expect(spec.isBidRequestValid(bidWithoutPlacementId)).to.equal(false);
+    });
+
+    it('should return false when account_id is missing', function () {
+      const bidWithoutAccountId = { ...bid };
+      delete bidWithoutAccountId.params.account_id;
+      expect(spec.isBidRequestValid(bidWithoutAccountId)).to.equal(false);
+    });
+
+>>>>>>> origin
     it('should return false when required params are not passed', function () {
       delete bid.params.placement_id;
       expect(spec.isBidRequestValid(bid)).to.equal(false);
@@ -104,6 +254,7 @@ describe('SetupadAdapter', function () {
   });
 
   describe('buildRequests', function () {
+<<<<<<< HEAD
     it('check request params with GDPR and USP', function () {
       const request = spec.buildRequests(bidRequests, bidRequests[0]);
       expect(JSON.parse(request[0].data).user.ext.consent).to.equal(
@@ -175,6 +326,27 @@ describe('SetupadAdapter', function () {
       const request = spec.buildRequests(bidRequestsUnsupportedUserIdModule);
 
       expect(JSON.parse(request[0].data).user.ext.eids).to.be.undefined;
+=======
+    it('should return correct storedrequest id for bids if placement_id is provided', function () {
+      const request = spec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.imp[0].ext.prebid.storedrequest.id).to.equal('123');
+    });
+
+    it('should return correct storedrequest id if account_id is provided', function () {
+      const request = spec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.ext.prebid.storedrequest.id).to.equal('test-account-id');
+    });
+
+    it('should return setupad custom adapter param', function () {
+      const request = spec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.setupad).to.equal('adapter');
+    });
+
+    // Change this to 1 whenever TEST_REQUEST = 1. This is allowed only for testing requests locally
+    it('should return correct test attribute value from global value', function () {
+      const request = spec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.test).to.equal(0);
+>>>>>>> origin
     });
   });
 
@@ -241,13 +413,18 @@ describe('SetupadAdapter', function () {
   describe('interpretResponse', function () {
     it('should return empty array if error during parsing', () => {
       const wrongServerResponse = 'wrong data';
+<<<<<<< HEAD
       let request = spec.buildRequests(bidRequests, bidRequests[0]);
+=======
+      let request = spec.buildRequests(bidRequests, bidderRequest);
+>>>>>>> origin
       let result = spec.interpretResponse(wrongServerResponse, request);
 
       expect(result).to.be.instanceof(Array);
       expect(result.length).to.equal(0);
     });
 
+<<<<<<< HEAD
     it('should get correct bid response', function () {
       const result = spec.interpretResponse(serverResponse, bidRequests[0]);
       expect(result).to.be.an('array').with.lengthOf(1);
@@ -260,6 +437,16 @@ describe('SetupadAdapter', function () {
       expect(result[0].netRevenue).to.equal(true);
       expect(result[0].ttl).to.equal(360);
       expect(result[0].ad).to.equal('this is an ad');
+=======
+    it('should update biddersCreativeIds correctly', function () {
+      spec.interpretResponse(serverResponse, bidderRequest);
+
+      expect(biddersCreativeIds).to.deep.equal({
+        123: 'pubmatic',
+        1234: 'pubmatic',
+        12345: 'setupad',
+      });
+>>>>>>> origin
     });
   });
 

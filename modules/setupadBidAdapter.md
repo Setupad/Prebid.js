@@ -26,7 +26,11 @@ const adUnits = [
         bidder: 'setupad',
         params: {
           placement_id: '123', //required
+<<<<<<< HEAD
           account_id: '123', //optional
+=======
+          account_id: '123', //required
+>>>>>>> origin
         },
       },
     ],

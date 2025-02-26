@@ -18,7 +18,7 @@ import { Uid2GetId, Uid2CodeVersion, extractIdentityFromParams } from './uid2IdS
  * @typedef {import('../modules/userId/index.js').Submodule} Submodule
  * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
  * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
- * @typedef {import('../modules/userId/index.js').euidId} euidId
+ * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
  */
 
 const MODULE_NAME = 'euid';
@@ -82,16 +82,16 @@ export const euidIdSubmodule = {
   /**
    * performs action to obtain id and return a value.
    * @function
-   * @param {SubmoduleConfig} [configparams]
+   * @param {SubmoduleConfig} [config]
    * @param {ConsentData|undefined} consentData
-   * @returns {euidId}
+   * @returns {IdResponse}
    */
   getId(config, consentData) {
-    if (consentData?.gdprApplies !== true) {
+    if (consentData?.gdpr?.gdprApplies !== true) {
       logWarn('EUID is intended for use within the EU. The module will not run when GDPR does not apply.');
       return;
     }
-    if (!hasWriteToDeviceConsent(consentData)) {
+    if (!hasWriteToDeviceConsent(consentData?.gdpr)) {
       // The module cannot operate without this permission.
       _logWarn(`Unable to use EUID module due to insufficient consent. The EUID module requires storage permission.`)
       return;
@@ -134,6 +134,10 @@ function decodeImpl(value) {
     _logInfo('Found server-only token. Refresh is unavailable for this token.');
     const result = { euid: { id: value } };
     return result;
+  }
+  if (value.latestToken === 'optout') {
+    _logInfo('Found optout token.  Refresh is unavailable for this token.');
+    return { euid: { optout: true } };
   }
   if (Date.now() < value.latestToken.identity_expires) {
     return { euid: { id: value.latestToken.advertising_token } };
