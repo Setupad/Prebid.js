@@ -18,6 +18,7 @@ const GVLID = 1241;
 const TIME_TO_LIVE = 360;
 export const biddersCreativeIds = {}; // export only for tests
 const NET_REVENUE = true;
+let UID = {};
 const TEST_REQUEST = 0; // used only for testing
 
 const converter = ortbConverter({
@@ -66,6 +67,10 @@ export const spec = {
 
   buildRequests: function (validBidRequests, bidderRequest) {
     const data = converter.toORTB({ validBidRequests, bidderRequest });
+
+    UID[data?.id] = data?.user?.ext?.eids
+      ?.find(eid => eid.source === 'pubcid.org')
+      ?.uids?.[0]?.id;
 
     return {
       method: 'POST',
@@ -172,6 +177,9 @@ export const spec = {
     queryParams.push('cpm=' + bid.originalCpm);
     queryParams.push('currency=' + bid.originalCurrency);
     queryParams.push('timestamp=' + Date.now());
+    queryParams.push('uid=' + (UID.auctionId || ''));
+
+    delete UID[auctionId];
 
     const strQueryParams = queryParams.join('&');
 
